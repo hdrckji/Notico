@@ -32,9 +32,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
+const HOST = process.env.HOST || '0.0.0.0';
 
-const server = app.listen(PORT, async () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, HOST, async () => {
+  console.log(`✅ Server running on http://${HOST}:${PORT}`);
 
   try {
     const [authModule, supplierModule, appointmentModule, locationModule, adminModule] = await Promise.all([
@@ -60,4 +61,12 @@ const server = app.listen(PORT, async () => {
 // Handle graceful shutdown
 process.on('SIGINT', () => {
   server.close(() => process.exit(0));
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
 });
