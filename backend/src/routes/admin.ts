@@ -39,6 +39,30 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
 
 // ============ INTERNAL USERS ============
 
+// Get internal users
+router.get('/users', authMiddleware, requireRole('ADMIN'), async (_req: Request, res: Response) => {
+  try {
+    const users = await prisma.internalUser.findMany({
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        locationId: true,
+      },
+      orderBy: [
+        { firstName: 'asc' },
+        { lastName: 'asc' },
+      ],
+    });
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
 // Create internal user
 router.post('/users', authMiddleware, requireRole('ADMIN'), [
   body('email').notEmpty(),
