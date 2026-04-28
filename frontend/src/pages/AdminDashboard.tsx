@@ -270,7 +270,7 @@ export default function AdminDashboard() {
               <h2 className="text-xl font-bold">Creer un fournisseur</h2>
               <form onSubmit={handleCreateSupplier} className="grid gap-3 sm:grid-cols-2">
                 <input className="rounded border p-2" placeholder="Nom" required value={supplierForm.name} onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))} />
-                <input className="rounded border p-2" placeholder="Email" required type="email" value={supplierForm.email} onChange={(e) => setSupplierForm((prev) => ({ ...prev, email: e.target.value }))} />
+                <input className="rounded border p-2" placeholder="Identifiant / Email" required type="text" value={supplierForm.email} onChange={(e) => setSupplierForm((prev) => ({ ...prev, email: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Telephone" required value={supplierForm.phone} onChange={(e) => setSupplierForm((prev) => ({ ...prev, phone: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Contact" value={supplierForm.contact} onChange={(e) => setSupplierForm((prev) => ({ ...prev, contact: e.target.value }))} />
                 <input className="rounded border p-2 sm:col-span-2" placeholder="Adresse" value={supplierForm.address} onChange={(e) => setSupplierForm((prev) => ({ ...prev, address: e.target.value }))} />

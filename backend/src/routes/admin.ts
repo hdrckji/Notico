@@ -11,7 +11,7 @@ const router = Router();
 // Create supplier
 router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
   body('name').notEmpty(),
-  body('email').isEmail(),
+  body('email').notEmpty(),
   body('phone').notEmpty(),
 ], async (req: Request, res: Response) => {
   const errors = validationResult(req);
