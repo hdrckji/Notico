@@ -7,6 +7,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
+const PORT = parseInt(process.env.PORT || '5000', 10);
+const HOST = process.env.HOST || '0.0.0.0';
+
+console.log('Booting backend...', {
+  nodeEnv: process.env.NODE_ENV || 'undefined',
+  host: HOST,
+  port: PORT,
+});
 
 // Middleware
 app.use(helmet());
@@ -18,44 +26,51 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date() });
+app.get('/health', (_req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.get('/', (_req, res) => {
+  res.json({ service: 'supplier-appointments-backend', status: 'OK' });
+});
+
+const server = app.listen(PORT, HOST, () => {
+  console.log(`✅ Server running on http://${HOST}:${PORT}`);
+
+  setImmediate(async () => {
+    try {
+      const [authModule, supplierModule, appointmentModule, locationModule, adminModule] = await Promise.all([
+        import('./routes/auth'),
+        import('./routes/suppliers'),
+        import('./routes/appointments'),
+        import('./routes/locations'),
+        import('./routes/admin'),
+      ]);
+
+      app.use('/api/auth', authModule.default);
+      app.use('/api/suppliers', supplierModule.default);
+      app.use('/api/appointments', appointmentModule.default);
+      app.use('/api/locations', locationModule.default);
+      app.use('/api/admin', adminModule.default);
+
+      console.log('✅ API routes initialized');
+    } catch (error) {
+      console.error('⚠️ API routes initialization failed:', error);
+    }
+  });
+});
+
+server.on('error', (error) => {
+  console.error('HTTP server error:', error);
 });
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err);
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Express error middleware:', err);
   res.status(err.statusCode || 500).json({
     error: err.message || 'Internal Server Error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
-});
-
-const PORT = parseInt(process.env.PORT || '5000', 10);
-const HOST = process.env.HOST || '0.0.0.0';
-
-const server = app.listen(PORT, HOST, async () => {
-  console.log(`✅ Server running on http://${HOST}:${PORT}`);
-
-  try {
-    const [authModule, supplierModule, appointmentModule, locationModule, adminModule] = await Promise.all([
-      import('./routes/auth'),
-      import('./routes/suppliers'),
-      import('./routes/appointments'),
-      import('./routes/locations'),
-      import('./routes/admin'),
-    ]);
-
-    app.use('/api/auth', authModule.default);
-    app.use('/api/suppliers', supplierModule.default);
-    app.use('/api/appointments', appointmentModule.default);
-    app.use('/api/locations', locationModule.default);
-    app.use('/api/admin', adminModule.default);
-
-    console.log('✅ API routes initialized');
-  } catch (error) {
-    console.error('⚠️ API routes initialization failed:', error);
-  }
 });
 
 // Handle graceful shutdown
