@@ -41,7 +41,7 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
 
 // Create internal user
 router.post('/users', authMiddleware, requireRole('ADMIN'), [
-  body('email').isEmail(),
+  body('email').notEmpty(),
   body('password').isLength({ min: 6 }),
   body('firstName').notEmpty(),
 ], async (req: Request, res: Response) => {

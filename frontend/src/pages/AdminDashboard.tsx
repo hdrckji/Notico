@@ -298,7 +298,7 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               <h2 className="text-xl font-bold">Creer un utilisateur interne</h2>
               <form onSubmit={handleCreateUser} className="grid gap-3 sm:grid-cols-2">
-                <input className="rounded border p-2" placeholder="Email" type="email" required value={userForm.email} onChange={(e) => setUserForm((prev) => ({ ...prev, email: e.target.value }))} />
+                <input className="rounded border p-2" placeholder="Identifiant" type="text" required value={userForm.email} onChange={(e) => setUserForm((prev) => ({ ...prev, email: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Mot de passe" type="password" required minLength={6} value={userForm.password} onChange={(e) => setUserForm((prev) => ({ ...prev, password: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Prenom" required value={userForm.firstName} onChange={(e) => setUserForm((prev) => ({ ...prev, firstName: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Nom" value={userForm.lastName} onChange={(e) => setUserForm((prev) => ({ ...prev, lastName: e.target.value }))} />
