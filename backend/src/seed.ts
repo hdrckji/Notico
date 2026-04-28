@@ -42,7 +42,6 @@ async function main() {
         address: '1 Rue de la Logistique',
         city: 'Paris',
         postalCode: '75001',
-        country: 'France',
       },
     });
     console.log('Location created:', location.name);
@@ -53,7 +52,6 @@ async function main() {
         data: {
           name: `Quai ${i}`,
           locationId: location.id,
-          maxSlots: 8,
         },
       });
       console.log(`Quay ${i} created for ${location.name}`);
