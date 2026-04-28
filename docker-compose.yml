@@ -1,0 +1,69 @@
+# Supplier Delivery Appointment System - Docker Support
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: supplier_appointments_db
+    environment:
+      POSTGRES_USER: supplier_user
+      POSTGRES_PASSWORD: supplier_pass
+      POSTGRES_DB: supplier_appointments
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: supplier_appointments_backend
+    environment:
+      DATABASE_URL: postgresql://supplier_user:supplier_pass@postgres:5432/supplier_appointments
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRY: 7d
+      PORT: 5000
+      NODE_ENV: development
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - app-network
+    command: npm run dev
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: supplier_appointments_frontend
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - app-network
+    command: npm run dev
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
