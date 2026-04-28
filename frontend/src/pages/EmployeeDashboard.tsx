@@ -310,4 +310,3 @@ function AppointmentRow({ appt, updatingId, onUpdate }: { appt: Appointment; upd
     </div>
   );
 }
-}
