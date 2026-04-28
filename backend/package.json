@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "ts-node src/server.ts",
     "build": "prisma generate && tsc",
-    "start": "npm run prisma:deploy && node dist/server.js",
+    "start": "npm run prisma:sync && node dist/server.js",
     "postinstall": "prisma generate",
     "test": "jest",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:sync": "prisma db push"
   },
   "dependencies": {
     "express": "^4.18.2",
