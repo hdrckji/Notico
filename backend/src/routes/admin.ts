@@ -129,6 +129,16 @@ router.post('/quays', authMiddleware, requireRole('ADMIN'), [
   }
 });
 
+// Delete quay
+router.delete('/quays/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    await prisma.quay.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete quay' });
+  }
+});
+
 // ============ QUAY ASSIGNMENTS ============
 
 // Assign quay to supplier

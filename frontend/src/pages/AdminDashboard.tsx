@@ -178,6 +178,18 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteQuay = async (id: string) => {
+    if (!window.confirm('Supprimer ce quai ?')) return;
+    resetNotices();
+    try {
+      await client.delete(`/admin/quays/${id}`);
+      setMessage('Quai supprime.');
+      await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Suppression impossible.');
+    }
+  };
+
   const handleAssignQuay = async (event: FormEvent) => {
     event.preventDefault();
     resetNotices();
@@ -355,9 +367,12 @@ export default function AdminDashboard() {
 
               <div className="space-y-2">
                 {allQuays.map((quay) => (
-                  <div key={quay.id} className="rounded border border-slate-200 p-3 text-sm">
-                    <p className="font-semibold">{quay.name}</p>
-                    <p className="text-slate-600">Site: {quay.locationName}</p>
+                  <div key={quay.id} className="flex items-center justify-between rounded border border-slate-200 p-3 text-sm">
+                    <div>
+                      <p className="font-semibold">{quay.name}</p>
+                      <p className="text-slate-600">Site: {quay.locationName}</p>
+                    </div>
+                    <button onClick={() => handleDeleteQuay(quay.id)} className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700">Supprimer</button>
                   </div>
                 ))}
               </div>
