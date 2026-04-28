@@ -4,6 +4,7 @@ export interface JwtPayload {
   id: string;
   role: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER';
   email: string;
+  locationId?: string | null;
 }
 
 export const generateToken = (payload: JwtPayload): string => {

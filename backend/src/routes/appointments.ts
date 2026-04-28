@@ -40,8 +40,10 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         orderBy: { scheduledDate: 'desc' },
       });
     } else if (req.user?.role === 'EMPLOYEE') {
+      // If employee has a locationId, filter by location; else show all
+      const where = req.user.locationId ? { locationId: req.user.locationId } : {};
       appointments = await prisma.appointment.findMany({
-        where: { locationId: req.user.id }, // Assuming user.id maps to location
+        where,
         include: { supplier: true, location: true, quay: true },
         orderBy: { scheduledDate: 'desc' },
       });
