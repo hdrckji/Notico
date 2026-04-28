@@ -46,5 +46,5 @@ export const sendRescheduleRequest = async (
     <p>Thank you</p>
   `;
 
-  await sendEmail(to, 'Reschedule Your Delivery Appointment', html);
+  await sendEmail(supplierEmail, 'Reschedule Your Delivery Appointment', html);
 };
