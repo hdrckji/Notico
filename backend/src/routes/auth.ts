@@ -41,8 +41,8 @@ router.post('/supplier/login', [
 
 // ============ INTERNAL USER LOGIN ============
 router.post('/internal/login', [
-  body('email').isEmail(),
-  body('password').isLength({ min: 6 }),
+  body('email').notEmpty(),
+  body('password').notEmpty(),
 ], async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
