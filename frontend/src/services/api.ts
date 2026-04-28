@@ -21,8 +21,13 @@ client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const role = useAuthStore.getState().user?.role;
       useAuthStore.getState().logout();
-      window.location.href = '/supplier/login';
+      if (role === 'SUPPLIER') {
+        window.location.href = '/supplier/login';
+      } else {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
