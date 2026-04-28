@@ -57,7 +57,7 @@ model InternalUser {
   firstName         String
   lastName          String
   role              UserRole @default(EMPLOYEE)
-  location          DeliveryLocation?
+  location          DeliveryLocation? @relation(fields: [locationId], references: [id])
   locationId        String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
