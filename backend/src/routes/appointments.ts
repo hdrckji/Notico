@@ -5,21 +5,21 @@ import { sendRescheduleRequest } from '../config/email';
 
 const router = Router();
 
-// Create appointment (supplier only)
-router.post('/', authMiddleware, requireRole('SUPPLIER'), async (req: Request, res: Response) => {
+// Create appointment (supplier or admin)
+router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN'), async (req: Request, res: Response) => {
   try {
-    const { orderNumber, volume, deliveryType, locationId } = req.body;
+    const { orderNumber, volume, deliveryType, locationId, supplierId } = req.body;
 
     const appointment = await prisma.appointment.create({
       data: {
-        supplierId: req.user!.id,
+        supplierId: req.user!.role === 'ADMIN' ? supplierId : req.user!.id,
         orderNumber,
-        volume,
+        volume: Number(volume),
         deliveryType,
         scheduledDate: new Date(req.body.scheduledDate),
         locationId,
       },
-      include: { location: true },
+      include: { location: true, supplier: true },
     });
 
     res.status(201).json(appointment);
@@ -109,6 +109,39 @@ router.patch('/:id/reschedule', authMiddleware, async (req: Request, res: Respon
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: 'Failed to reschedule appointment' });
+  }
+});
+
+// Update full appointment (admin only)
+router.put('/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const { orderNumber, volume, deliveryType, scheduledDate, locationId, supplierId, status } = req.body;
+    const updated = await prisma.appointment.update({
+      where: { id: req.params.id },
+      data: {
+        orderNumber,
+        volume: Number(volume),
+        deliveryType,
+        scheduledDate: new Date(scheduledDate),
+        locationId,
+        supplierId,
+        status,
+      },
+      include: { supplier: true, location: true, quay: true },
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update appointment' });
+  }
+});
+
+// Delete appointment (admin only)
+router.delete('/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    await prisma.appointment.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete appointment' });
   }
 });
 
