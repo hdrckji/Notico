@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node src/server.ts",
     "build": "prisma generate && tsc",
-    "start": "npm run prisma:sync && node dist/server.js",
+    "start": "node dist/server.js",
     "postinstall": "prisma generate",
     "test": "jest",
     "prisma:migrate": "prisma migrate dev",
