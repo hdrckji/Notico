@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ENUMS ============
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+  SUPPLIER
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  DELIVERED
+  RESCHEDULED
+  NO_SHOW
+  CANCELLED
+}
+
+enum DeliveryType {
+  PALLET
+  PARCEL
+}
+
+// ============ MODELS ============
+
+model Supplier {
+  id                String   @id @default(cuid())
+  name              String
+  email             String   @unique
+  phone             String
+  address           String
+  postalCode        String
+  city              String
+  contact           String
+  maxDailyVolume    Int      @default(100)
+  assignedQuays     QuayAssignment[]
+  appointments      Appointment[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("suppliers")
+}
+
+model InternalUser {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String
+  firstName         String
+  lastName          String
+  role              UserRole @default(EMPLOYEE)
+  location          DeliveryLocation?
+  locationId        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("internal_users")
+}
+
+model DeliveryLocation {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  address           String
+  city              String
+  postalCode        String
+  quays             Quay[]
+  employees         InternalUser[]
+  appointments      Appointment[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("delivery_locations")
+}
+
+model Quay {
+  id                String   @id @default(cuid())
+  name              String
+  locationId        String
+  location          DeliveryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  assignments       QuayAssignment[]
+  appointments      Appointment[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([locationId, name])
+  @@map("quays")
+}
+
+model QuayAssignment {
+  id                String   @id @default(cuid())
+  supplierId        String
+  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  quayId            String
+  quay              Quay     @relation(fields: [quayId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([supplierId, quayId])
+  @@map("quay_assignments")
+}
+
+model Appointment {
+  id                String   @id @default(cuid())
+  supplierId        String
+  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  orderNumber       String
+  volume            Int
+  deliveryType      DeliveryType
+  scheduledDate     DateTime
+  locationId        String
+  location          DeliveryLocation @relation(fields: [locationId], references: [id])
+  quayId            String?
+  quay              Quay? @relation(fields: [quayId], references: [id])
+  status            AppointmentStatus @default(SCHEDULED)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([scheduledDate])
+  @@index([locationId])
+  @@map("appointments")
+}
