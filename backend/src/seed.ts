@@ -10,25 +10,20 @@ async function main() {
   console.log('Starting seed...');
 
   // Create admin user
-  const existingAdmin = await prisma.internalUser.findUnique({
-    where: { email: 'admin@notico.com' },
-  });
+  // Delete old admin if exists with old email, to allow re-seed
+  await prisma.internalUser.deleteMany({ where: { email: { in: ['admin@notico.com', 'admin'] } } });
 
-  if (!existingAdmin) {
-    const hashedPassword = await bcrypt.hash('Admin@2024!', 12);
-    const admin = await prisma.internalUser.create({
-      data: {
-        email: 'admin@notico.com',
-        password: hashedPassword,
-        firstName: 'Admin',
-        lastName: 'Notico',
-        role: 'ADMIN',
-      },
-    });
-    console.log('Admin user created:', admin.email);
-  } else {
-    console.log('Admin user already exists:', existingAdmin.email);
-  }
+  const hashedPassword = await bcrypt.hash('Famiflora', 12);
+  const admin = await prisma.internalUser.create({
+    data: {
+      email: 'admin',
+      password: hashedPassword,
+      firstName: 'Admin',
+      lastName: 'Notico',
+      role: 'ADMIN',
+    },
+  });
+  console.log('Admin user created:', admin.email);
 
   // Create a default delivery location
   const existingLocation = await prisma.deliveryLocation.findFirst({

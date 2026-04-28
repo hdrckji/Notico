@@ -47,13 +47,13 @@ export default function InternalLogin() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-2 text-sm">Email</label>
+            <label className="block text-gray-700 font-medium mb-2 text-sm">Identifiant</label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="admin@notico.com"
+              placeholder="admin"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 text-sm"
             />
           </div>
