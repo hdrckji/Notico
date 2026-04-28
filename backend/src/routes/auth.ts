@@ -41,7 +41,8 @@ router.post('/supplier/login', [
 
 // ============ INTERNAL USER LOGIN ============
 router.post('/internal/login', [
-  body('email').notEmpty(),
+  body('identifier').optional().notEmpty(),
+  body('email').optional().notEmpty(),
   body('password').notEmpty(),
 ], async (req: Request, res: Response) => {
   const errors = validationResult(req);
@@ -50,8 +51,14 @@ router.post('/internal/login', [
   }
 
   try {
-    const { email, password } = req.body;
-    const user = await prisma.internalUser.findUnique({ where: { email } });
+    const identifier = req.body.identifier || req.body.email;
+    const { password } = req.body;
+
+    if (!identifier) {
+      return res.status(400).json({ error: 'Identifier is required' });
+    }
+
+    const user = await prisma.internalUser.findUnique({ where: { email: identifier } });
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });

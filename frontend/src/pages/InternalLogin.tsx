@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import client from '../services/api';
 
 export default function InternalLogin() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -17,7 +17,7 @@ export default function InternalLogin() {
     setError('');
 
     try {
-      const { data } = await client.post('/auth/internal/login', { email, password });
+      const { data } = await client.post('/auth/internal/login', { identifier, password });
       login(data.token, { ...data.user, role: data.user.role });
       if (data.user.role === 'ADMIN') navigate('/admin');
       else navigate('/employee');
@@ -50,9 +50,10 @@ export default function InternalLogin() {
             <label className="block text-gray-700 font-medium mb-2 text-sm">Identifiant</label>
             <input
               type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
+              autoComplete="username"
               placeholder="admin"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 text-sm"
             />
@@ -65,6 +66,7 @@ export default function InternalLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 text-sm"
             />
           </div>
