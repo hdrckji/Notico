@@ -2,20 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
-
-// Import routes
-import authRoutes from './routes/auth';
-import supplierRoutes from './routes/suppliers';
-import appointmentRoutes from './routes/appointments';
-import locationRoutes from './routes/locations';
-import adminRoutes from './routes/admin';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
 
 // Middleware
 app.use(helmet());
@@ -31,13 +22,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/suppliers', supplierRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/locations', locationRoutes);
-app.use('/api/admin', adminRoutes);
-
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err);
@@ -49,12 +33,31 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
+
+  try {
+    const [authModule, supplierModule, appointmentModule, locationModule, adminModule] = await Promise.all([
+      import('./routes/auth'),
+      import('./routes/suppliers'),
+      import('./routes/appointments'),
+      import('./routes/locations'),
+      import('./routes/admin'),
+    ]);
+
+    app.use('/api/auth', authModule.default);
+    app.use('/api/suppliers', supplierModule.default);
+    app.use('/api/appointments', appointmentModule.default);
+    app.use('/api/locations', locationModule.default);
+    app.use('/api/admin', adminModule.default);
+
+    console.log('✅ API routes initialized');
+  } catch (error) {
+    console.error('⚠️ API routes initialization failed:', error);
+  }
 });
 
 // Handle graceful shutdown
-process.on('SIGINT', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
+process.on('SIGINT', () => {
+  server.close(() => process.exit(0));
 });
