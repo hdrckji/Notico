@@ -577,7 +577,7 @@ export default function AdminDashboard() {
 
           {activeSection === 'quays' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold">Creer un quai</h2>
+              <h2 className="text-xl font-bold">Créer un quai</h2>
               <form onSubmit={handleCreateQuay} className="grid gap-3 sm:grid-cols-2">
                 <input className="rounded border p-2" placeholder="Nom du quai" required value={quayForm.name} onChange={(e) => setQuayForm((prev) => ({ ...prev, name: e.target.value }))} />
                 <select className="rounded border p-2" required value={quayForm.locationId} onChange={(e) => setQuayForm((prev) => ({ ...prev, locationId: e.target.value }))}>

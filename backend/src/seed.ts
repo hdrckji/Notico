@@ -40,17 +40,6 @@ async function main() {
       },
     });
     console.log('Location created:', location.name);
-
-    // Create 3 quays for this location
-    for (let i = 1; i <= 3; i++) {
-      await prisma.quay.create({
-        data: {
-          name: `Quai ${i}`,
-          locationId: location.id,
-        },
-      });
-      console.log(`Quay ${i} created for ${location.name}`);
-    }
   } else {
     console.log('Location already exists:', existingLocation.name);
   }
