@@ -347,13 +347,13 @@ export default function AdminDashboard() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight">Console Admin</h1>
-            <p className="text-sm text-slate-600">Bienvenue {user?.firstName || 'Admin'}, gerez votre operation Notico.</p>
+            <p className="text-sm text-slate-600">Bienvenue {user?.firstName || 'Admin'}, gérez votre opération Notico.</p>
           </div>
           <button
             onClick={logout}
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
           >
-            Deconnexion
+              Déconnexion
           </button>
         </div>
       </header>
@@ -391,7 +391,7 @@ export default function AdminDashboard() {
 
           {activeSection === 'overview' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold">Vue generale</h2>
+              <h2 className="text-xl font-bold">Vue générale</h2>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-slate-900 p-4 text-white">
                   <p className="text-xs uppercase tracking-wide text-slate-300">Fournisseurs</p>
@@ -410,7 +410,7 @@ export default function AdminDashboard() {
                 onClick={loadData}
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
               >
-                Rafraichir les donnees
+                Rafraîchir les données
               </button>
             </div>
           )}
@@ -444,7 +444,7 @@ export default function AdminDashboard() {
               )}
 
               <div>
-                <h2 className="text-xl font-bold mb-3">Creer un fournisseur</h2>
+                <h2 className="text-xl font-bold mb-3">Créer un fournisseur</h2>
                 <form onSubmit={handleCreateSupplier} className="grid gap-3 sm:grid-cols-2">
                   <input className="rounded border p-2" placeholder="Nom" required value={supplierForm.name} onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Identifiant / Email" required type="text" value={supplierForm.email} onChange={(e) => setSupplierForm((prev) => ({ ...prev, email: e.target.value }))} />
@@ -454,7 +454,7 @@ export default function AdminDashboard() {
                   <input className="rounded border p-2" placeholder="Code postal" value={supplierForm.postalCode} onChange={(e) => setSupplierForm((prev) => ({ ...prev, postalCode: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Ville" value={supplierForm.city} onChange={(e) => setSupplierForm((prev) => ({ ...prev, city: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Volume max/jour" type="number" min={1} value={supplierForm.maxDailyVolume} onChange={(e) => setSupplierForm((prev) => ({ ...prev, maxDailyVolume: Number(e.target.value) || 1 }))} />
-                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Creer fournisseur</button>
+                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer fournisseur</button>
                 </form>
               </div>
 
@@ -513,7 +513,7 @@ export default function AdminDashboard() {
               )}
 
               <div>
-                <h2 className="text-xl font-bold mb-3">Creer un utilisateur interne</h2>
+                <h2 className="text-xl font-bold mb-3">Créer un utilisateur interne</h2>
                 <form onSubmit={handleCreateUser} className="grid gap-3 sm:grid-cols-2">
                   <input className="rounded border p-2" placeholder="Identifiant" type="text" required value={userForm.email} onChange={(e) => setUserForm((prev) => ({ ...prev, email: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Mot de passe" type="password" required minLength={6} value={userForm.password} onChange={(e) => setUserForm((prev) => ({ ...prev, password: e.target.value }))} />
@@ -529,7 +529,7 @@ export default function AdminDashboard() {
                       <option key={location.id} value={location.id}>{location.name}</option>
                     ))}
                   </select>
-                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Creer utilisateur</button>
+                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer utilisateur</button>
                 </form>
               </div>
 
@@ -555,13 +555,13 @@ export default function AdminDashboard() {
 
           {activeSection === 'locations' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold">Creer un site</h2>
+              <h2 className="text-xl font-bold">Créer un site</h2>
               <form onSubmit={handleCreateLocation} className="grid gap-3 sm:grid-cols-2">
                 <input className="rounded border p-2" placeholder="Nom du site" required value={locationForm.name} onChange={(e) => setLocationForm((prev) => ({ ...prev, name: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Adresse" required value={locationForm.address} onChange={(e) => setLocationForm((prev) => ({ ...prev, address: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Ville" required value={locationForm.city} onChange={(e) => setLocationForm((prev) => ({ ...prev, city: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Code postal" required value={locationForm.postalCode} onChange={(e) => setLocationForm((prev) => ({ ...prev, postalCode: e.target.value }))} />
-                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Creer site</button>
+                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer site</button>
               </form>
 
               <div className="space-y-2">
@@ -586,7 +586,7 @@ export default function AdminDashboard() {
                     <option key={location.id} value={location.id}>{location.name}</option>
                   ))}
                 </select>
-                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Creer quai</button>
+                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer quai</button>
               </form>
 
               <div className="space-y-2">
@@ -605,7 +605,7 @@ export default function AdminDashboard() {
 
           {activeSection === 'assignments' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold">Affecter un quai a un fournisseur</h2>
+              <h2 className="text-xl font-bold">Affecter un quai à un fournisseur</h2>
               <form onSubmit={handleAssignQuay} className="grid gap-3 sm:grid-cols-2">
                 <select className="rounded border p-2" required value={assignmentForm.supplierId} onChange={(e) => setAssignmentForm((prev) => ({ ...prev, supplierId: e.target.value }))}>
                   <option value="">Selectionner un fournisseur</option>
@@ -619,7 +619,7 @@ export default function AdminDashboard() {
                     <option key={quay.id} value={quay.id}>{quay.name} ({quay.locationName})</option>
                   ))}
                 </select>
-                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Creer affectation</button>
+                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer affectation</button>
               </form>
             </div>
           )}
@@ -667,7 +667,7 @@ export default function AdminDashboard() {
               )}
 
               <div>
-                <h2 className="text-xl font-bold mb-3">Creer un rendez-vous</h2>
+                <h2 className="text-xl font-bold mb-3">Créer un rendez-vous</h2>
                 <form onSubmit={handleCreateAppointment} className="grid gap-3 sm:grid-cols-2">
                   <select className="rounded border p-2 sm:col-span-2" required value={appointmentForm.supplierId} onChange={(e) => setAppointmentForm((prev) => ({ ...prev, supplierId: e.target.value }))}>
                     <option value="">Selectionner un fournisseur</option>
@@ -684,7 +684,7 @@ export default function AdminDashboard() {
                     <option value="">Site (optionnel)</option>
                     {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
-                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 sm:col-span-2">Creer rendez-vous</button>
+                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 sm:col-span-2">Créer rendez-vous</button>
                 </form>
               </div>
 
