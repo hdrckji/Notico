@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
 import client from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
