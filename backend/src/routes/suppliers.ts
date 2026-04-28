@@ -19,7 +19,7 @@ router.get('/', authMiddleware, requireRole('ADMIN'), async (req: Request, res: 
 // Get supplier by ID (self or admin)
 router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
-    if (req.user?.role === 'SUPPLIER' && req.user?.id !== req.params.id && req.user?.role !== 'ADMIN') {
+    if (req.user?.role === 'SUPPLIER' && req.user.id !== req.params.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
