@@ -89,7 +89,6 @@ export default function AdminDashboard() {
     name: '',
     email: '',
     phone: '',
-            { id: 'capacities', label: 'Capacites max' },
     address: '',
     postalCode: '',
     city: '',
@@ -111,6 +110,7 @@ export default function AdminDashboard() {
     name: '',
     address: '',
     city: '',
+            { id: 'capacities', label: 'Capacites max' },
     postalCode: '',
   });
 
