@@ -25,6 +25,9 @@ router.post('/supplier/login', [
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!supplier.password) {
+      return res.status(401).json({ error: 'No password set, please contact your administrator' });
+    }
     const passwordMatch = await bcrypt.compare(password, supplier.password);
     if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
