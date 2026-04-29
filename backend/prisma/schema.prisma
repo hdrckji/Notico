@@ -59,6 +59,7 @@ model InternalUser {
   role              UserRole @default(EMPLOYEE)
   location          DeliveryLocation? @relation(fields: [locationId], references: [id])
   locationId        String?
+  assignedQuays     UserQuayAccess[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -87,11 +88,22 @@ model Quay {
   location          DeliveryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
   assignments       QuayAssignment[]
   appointments      Appointment[]
+  userAccess        UserQuayAccess[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@unique([locationId, name])
   @@map("quays")
+}
+
+model UserQuayAccess {
+  userId  String
+  quayId  String
+  user    InternalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quay    Quay         @relation(fields: [quayId], references: [id], onDelete: Cascade)
+
+  @@id([userId, quayId])
+  @@map("user_quay_access")
 }
 
 model QuayAssignment {

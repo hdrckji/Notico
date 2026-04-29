@@ -37,6 +37,7 @@ interface InternalUser {
   lastName: string;
   role: string;
   locationId: string | null;
+  assignedQuayIds: string[];
 }
 
 interface Quay {
@@ -64,6 +65,7 @@ export default function AdminDashboard() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [editingUser, setEditingUser] = useState<(InternalUser & { password?: string }) | null>(null);
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [appointmentForm, setAppointmentForm] = useState({
@@ -94,6 +96,7 @@ export default function AdminDashboard() {
     lastName: '',
     role: 'EMPLOYEE',
     locationId: '',
+    quayIds: [] as string[],
   });
 
   const [locationForm, setLocationForm] = useState({
@@ -181,6 +184,7 @@ export default function AdminDashboard() {
       await client.post('/admin/users', {
         ...userForm,
         locationId: userForm.locationId || undefined,
+        quayIds: userForm.quayIds,
       });
       setMessage('Utilisateur interne cree avec succes.');
       setUserForm({
@@ -190,7 +194,9 @@ export default function AdminDashboard() {
         lastName: '',
         role: 'EMPLOYEE',
         locationId: '',
+        quayIds: [],
       });
+      await loadData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Creation de l utilisateur impossible.');
     }
@@ -227,7 +233,10 @@ export default function AdminDashboard() {
     if (!editingUser) return;
     resetNotices();
     try {
-      await client.put(`/admin/users/${editingUser.id}`, editingUser);
+      await client.put(`/admin/users/${editingUser.id}`, {
+        ...editingUser,
+        quayIds: editingUser.assignedQuayIds,
+      });
       setMessage('Utilisateur mis a jour.');
       setEditingUser(null);
       await loadData();
@@ -298,6 +307,32 @@ export default function AdminDashboard() {
       await loadData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Creation du site impossible.');
+    }
+  };
+
+  const handleUpdateLocation = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingLocation) return;
+    resetNotices();
+    try {
+      await client.put(`/admin/locations/${editingLocation.id}`, editingLocation);
+      setMessage('Site mis a jour.');
+      setEditingLocation(null);
+      await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Mise a jour impossible.');
+    }
+  };
+
+  const handleDeleteLocation = async (id: string) => {
+    if (!window.confirm('Supprimer ce site ? Les quais associes seront aussi supprimes.')) return;
+    resetNotices();
+    try {
+      await client.delete(`/admin/locations/${id}`);
+      setMessage('Site supprime.');
+      await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Suppression impossible.');
     }
   };
 
@@ -497,12 +532,38 @@ export default function AdminDashboard() {
                         <option value="EMPLOYEE">Employe</option>
                         <option value="ADMIN">Admin</option>
                       </select>
-                      <select className="rounded border p-2" value={editingUser.locationId || ''} onChange={(e) => setEditingUser((prev) => prev && ({ ...prev, locationId: e.target.value || null }))}>
+                      <select className="rounded border p-2" value={editingUser.locationId || ''} onChange={(e) => setEditingUser((prev) => prev && ({ ...prev, locationId: e.target.value || null, assignedQuayIds: [] }))}>
                         <option value="">Sans site</option>
                         {locations.map((location) => (
                           <option key={location.id} value={location.id}>{location.name}</option>
                         ))}
                       </select>
+                      {editingUser.locationId && (() => {
+                        const siteQuays = locations.find((l) => l.id === editingUser.locationId)?.quays || [];
+                        return siteQuays.length > 0 ? (
+                          <div className="sm:col-span-2">
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Quais accessibles</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {siteQuays.map((q) => (
+                                <label key={q.id} className="flex items-center gap-2 rounded border p-2 text-sm cursor-pointer hover:bg-slate-50">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingUser.assignedQuayIds.includes(q.id)}
+                                    onChange={(e) => setEditingUser((prev) => {
+                                      if (!prev) return prev;
+                                      const ids = e.target.checked
+                                        ? [...prev.assignedQuayIds, q.id]
+                                        : prev.assignedQuayIds.filter((id) => id !== q.id);
+                                      return { ...prev, assignedQuayIds: ids };
+                                    })}
+                                  />
+                                  {q.name}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="flex gap-2 sm:col-span-2">
                         <button type="submit" className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Enregistrer</button>
                         <button type="button" onClick={() => setEditingUser(null)} className="rounded border px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
@@ -523,13 +584,38 @@ export default function AdminDashboard() {
                     <option value="EMPLOYEE">Employe</option>
                     <option value="ADMIN">Admin</option>
                   </select>
-                  <select className="rounded border p-2" value={userForm.locationId} onChange={(e) => setUserForm((prev) => ({ ...prev, locationId: e.target.value }))}>
+                  <select className="rounded border p-2" value={userForm.locationId} onChange={(e) => setUserForm((prev) => ({ ...prev, locationId: e.target.value, quayIds: [] }))}>
                     <option value="">Sans site</option>
                     {locations.map((location) => (
                       <option key={location.id} value={location.id}>{location.name}</option>
                     ))}
                   </select>
-                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer utilisateur</button>
+                  {userForm.locationId && (() => {
+                    const siteQuays = locations.find((l) => l.id === userForm.locationId)?.quays || [];
+                    return siteQuays.length > 0 ? (
+                      <div className="sm:col-span-2">
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Quais accessibles</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {siteQuays.map((q) => (
+                            <label key={q.id} className="flex items-center gap-2 rounded border p-2 text-sm cursor-pointer hover:bg-slate-50">
+                              <input
+                                type="checkbox"
+                                checked={userForm.quayIds.includes(q.id)}
+                                onChange={(e) => setUserForm((prev) => {
+                                  const ids = e.target.checked
+                                    ? [...prev.quayIds, q.id]
+                                    : prev.quayIds.filter((id) => id !== q.id);
+                                  return { ...prev, quayIds: ids };
+                                })}
+                              />
+                              {q.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 sm:col-span-2">Créer utilisateur</button>
                 </form>
               </div>
 
@@ -541,6 +627,9 @@ export default function AdminDashboard() {
                       <div>
                         <p className="font-semibold">{u.firstName} {u.lastName}</p>
                         <p className="text-slate-500">{u.email} · <span className="font-mono">{u.role}</span>{u.locationId ? ` · ${locations.find((l) => l.id === u.locationId)?.name || u.locationId}` : ''}</p>
+                        {u.assignedQuayIds.length > 0 && (
+                          <p className="text-slate-400 text-xs">Quais : {u.assignedQuayIds.map((qid) => allQuays.find((q) => q.id === qid)?.name || qid).join(', ')}</p>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setEditingUser({ ...u, password: '' })} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>
@@ -555,6 +644,28 @@ export default function AdminDashboard() {
 
           {activeSection === 'locations' && (
             <div className="space-y-4">
+              {/* Modal édition site */}
+              {editingLocation && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditingLocation(null)}>
+                  <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold text-lg">Modifier {editingLocation.name}</h3>
+                      <button onClick={() => setEditingLocation(null)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">×</button>
+                    </div>
+                    <form onSubmit={handleUpdateLocation} className="grid gap-3 sm:grid-cols-2">
+                      <input className="rounded border p-2" placeholder="Nom du site" required value={editingLocation.name} onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, name: e.target.value }))} />
+                      <input className="rounded border p-2" placeholder="Adresse" required value={editingLocation.address} onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, address: e.target.value }))} />
+                      <input className="rounded border p-2" placeholder="Ville" required value={editingLocation.city} onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, city: e.target.value }))} />
+                      <input className="rounded border p-2" placeholder="Code postal" required value={editingLocation.postalCode} onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, postalCode: e.target.value }))} />
+                      <div className="flex gap-2 sm:col-span-2">
+                        <button type="submit" className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Enregistrer</button>
+                        <button type="button" onClick={() => setEditingLocation(null)} className="rounded border px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
               <h2 className="text-xl font-bold">Créer un site</h2>
               <form onSubmit={handleCreateLocation} className="grid gap-3 sm:grid-cols-2">
                 <input className="rounded border p-2" placeholder="Nom du site" required value={locationForm.name} onChange={(e) => setLocationForm((prev) => ({ ...prev, name: e.target.value }))} />
@@ -566,9 +677,16 @@ export default function AdminDashboard() {
 
               <div className="space-y-2">
                 {locations.map((location) => (
-                  <div key={location.id} className="rounded border border-slate-200 p-3 text-sm">
-                    <p className="font-semibold">{location.name}</p>
-                    <p className="text-slate-600">{location.city}</p>
+                  <div key={location.id} className="flex items-center justify-between rounded border border-slate-200 p-3 text-sm">
+                    <div>
+                      <p className="font-semibold">{location.name}</p>
+                      <p className="text-slate-600">{location.address}, {location.city} {location.postalCode}</p>
+                      <p className="text-slate-400 text-xs">{location.quays.length} quai(s)</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setEditingLocation(location)} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>
+                      <button onClick={() => handleDeleteLocation(location.id)} className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700">Supprimer</button>
+                    </div>
                   </div>
                 ))}
               </div>

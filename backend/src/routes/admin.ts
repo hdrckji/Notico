@@ -37,10 +37,42 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
   }
 });
 
+// Update supplier
+router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const supplier = await prisma.supplier.update({
+      where: { id: req.params.id },
+      data: {
+        name: req.body.name,
+        email: req.body.email,
+        phone: req.body.phone,
+        address: req.body.address,
+        postalCode: req.body.postalCode,
+        city: req.body.city,
+        contact: req.body.contact,
+        maxDailyVolume: req.body.maxDailyVolume,
+      },
+    });
+    res.json(supplier);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update supplier' });
+  }
+});
+
+// Delete supplier
+router.delete('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    await prisma.supplier.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete supplier' });
+  }
+});
+
 // ============ INTERNAL USERS ============
 
-// Get internal users
-router.get('/users', authMiddleware, requireRole('ADMIN'), async (_req: Request, res: Response) => {
+// List internal users
+router.get('/users', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
   try {
     const users = await prisma.internalUser.findMany({
       select: {
@@ -50,14 +82,11 @@ router.get('/users', authMiddleware, requireRole('ADMIN'), async (_req: Request,
         lastName: true,
         role: true,
         locationId: true,
+        assignedQuays: { select: { quayId: true } },
       },
-      orderBy: [
-        { firstName: 'asc' },
-        { lastName: 'asc' },
-      ],
+      orderBy: { firstName: 'asc' },
     });
-
-    res.json(users);
+    res.json(users.map((u) => ({ ...u, assignedQuayIds: u.assignedQuays.map((aq) => aq.quayId), assignedQuays: undefined })));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
@@ -82,13 +111,63 @@ router.post('/users', authMiddleware, requireRole('ADMIN'), [
         firstName: req.body.firstName,
         lastName: req.body.lastName || '',
         role: req.body.role || 'EMPLOYEE',
-        locationId: req.body.locationId,
+        locationId: req.body.locationId || null,
       },
     });
+
+    const quayIds: string[] = Array.isArray(req.body.quayIds) ? req.body.quayIds : [];
+    if (quayIds.length > 0) {
+      await prisma.userQuayAccess.createMany({
+        data: quayIds.map((quayId) => ({ userId: user.id, quayId })),
+        skipDuplicates: true,
+      });
+    }
 
     res.status(201).json({ id: user.id, email: user.email, role: user.role });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Update internal user
+router.put('/users/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const data: any = {
+      email: req.body.email,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      role: req.body.role,
+      locationId: req.body.locationId || null,
+    };
+    if (req.body.password && req.body.password.length >= 6) {
+      data.password = await bcrypt.hash(req.body.password, 10);
+    }
+    const user = await prisma.internalUser.update({
+      where: { id: req.params.id },
+      data,
+    });
+    // Update quay access
+    const quayIds: string[] = Array.isArray(req.body.quayIds) ? req.body.quayIds : [];
+    await prisma.userQuayAccess.deleteMany({ where: { userId: req.params.id } });
+    if (quayIds.length > 0) {
+      await prisma.userQuayAccess.createMany({
+        data: quayIds.map((quayId) => ({ userId: req.params.id, quayId })),
+        skipDuplicates: true,
+      });
+    }
+    res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, locationId: user.locationId, assignedQuayIds: quayIds });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// Delete internal user
+router.delete('/users/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    await prisma.internalUser.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 
@@ -115,6 +194,24 @@ router.post('/locations', authMiddleware, requireRole('ADMIN'), [
     res.status(201).json(location);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create location' });
+  }
+});
+
+// Update location
+router.put('/locations/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const location = await prisma.deliveryLocation.update({
+      where: { id: req.params.id },
+      data: {
+        name: req.body.name,
+        address: req.body.address,
+        city: req.body.city,
+        postalCode: req.body.postalCode,
+      },
+    });
+    res.json(location);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update location' });
   }
 });
 

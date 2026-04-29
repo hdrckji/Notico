@@ -40,8 +40,17 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         orderBy: { scheduledDate: 'desc' },
       });
     } else if (req.user?.role === 'EMPLOYEE') {
-      // If employee has a locationId, filter by location; else show all
-      const where = req.user.locationId ? { locationId: req.user.locationId } : {};
+      // Filter by assigned quays if any, else by location, else show all
+      const userAccess = await prisma.userQuayAccess.findMany({
+        where: { userId: req.user.id },
+        select: { quayId: true },
+      });
+      let where: any = {};
+      if (userAccess.length > 0) {
+        where = { quayId: { in: userAccess.map((ua) => ua.quayId) } };
+      } else if (req.user.locationId) {
+        where = { locationId: req.user.locationId };
+      }
       appointments = await prisma.appointment.findMany({
         where,
         include: { supplier: true, location: true, quay: true },
