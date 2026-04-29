@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "ts-node src/server.ts",
     "build": "prisma generate && tsc",
-    "start": "prisma db push && node dist/seed.js && node dist/server.js",
+    "start": "node dist/server.js",
+    "db:init": "prisma db push && node dist/seed.js",
     "seed": "ts-node src/seed.ts",
     "postinstall": "prisma generate",
     "test": "jest",
