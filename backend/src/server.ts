@@ -55,24 +55,22 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`✅ Server running on http://${HOST}:${PORT}`);
 
   setImmediate(async () => {
-    try {
-      const [authModule, supplierModule, appointmentModule, locationModule, adminModule] = await Promise.all([
-        import('./routes/auth'),
-        import('./routes/suppliers'),
-        import('./routes/appointments'),
-        import('./routes/locations'),
-        import('./routes/admin'),
-      ]);
+    const routeLoaders = [
+      { prefix: '/api/auth', modulePath: './routes/auth' },
+      { prefix: '/api/suppliers', modulePath: './routes/suppliers' },
+      { prefix: '/api/appointments', modulePath: './routes/appointments' },
+      { prefix: '/api/locations', modulePath: './routes/locations' },
+      { prefix: '/api/admin', modulePath: './routes/admin' },
+    ];
 
-      app.use('/api/auth', authModule.default);
-      app.use('/api/suppliers', supplierModule.default);
-      app.use('/api/appointments', appointmentModule.default);
-      app.use('/api/locations', locationModule.default);
-      app.use('/api/admin', adminModule.default);
-
-      console.log('✅ API routes initialized');
-    } catch (error) {
-      console.error('⚠️ API routes initialization failed:', error);
+    for (const route of routeLoaders) {
+      try {
+        const mod = await import(route.modulePath);
+        app.use(route.prefix, mod.default);
+        console.log(`✅ Route initialized: ${route.prefix}`);
+      } catch (error) {
+        console.error(`⚠️ Route initialization failed for ${route.prefix}:`, error);
+      }
     }
   });
 });
