@@ -49,7 +49,9 @@ interface Quay {
 interface Location {
   id: string;
   name: string;
+  address: string;
   city: string;
+  postalCode: string;
   quays: Quay[];
 }
 
