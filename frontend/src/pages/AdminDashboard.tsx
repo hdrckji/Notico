@@ -110,7 +110,6 @@ export default function AdminDashboard() {
     name: '',
     address: '',
     city: '',
-            { id: 'capacities', label: 'Capacites max' },
     postalCode: '',
   });
 
@@ -123,6 +122,7 @@ export default function AdminDashboard() {
     supplierId: '',
     quayId: '',
   });
+            { id: 'capacities', label: 'Capacites max' },
 
   const allQuays = useMemo(
     () => locations.flatMap((location) => location.quays.map((quay) => ({ ...quay, locationName: location.name }))),
