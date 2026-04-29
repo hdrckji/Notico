@@ -6,6 +6,36 @@ import { prisma } from '../config/database';
 
 const router = Router();
 
+const upsertQuayCapacity = (quayId: string, maxParcelsPerDay: number, maxPalletsPerDay: number) => {
+  return prisma.quayDailyCapacity.upsert({
+    where: { quayId },
+    update: {
+      maxParcelsPerDay,
+      maxPalletsPerDay,
+    },
+    create: {
+      quayId,
+      maxParcelsPerDay,
+      maxPalletsPerDay,
+    },
+  });
+};
+
+const ensureQuayCapacityTable = async () => {
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "quay_daily_capacities" (
+      "quayId" TEXT PRIMARY KEY,
+      "maxParcelsPerDay" INTEGER NOT NULL DEFAULT 100,
+      "maxPalletsPerDay" INTEGER NOT NULL DEFAULT 100,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "quay_daily_capacities_quayId_fkey"
+        FOREIGN KEY ("quayId") REFERENCES "quays"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE
+    );
+  `);
+};
+
 // ============ SUPPLIERS ============
 
 // Create supplier
@@ -289,25 +319,26 @@ router.put('/quays/:id/capacity', authMiddleware, requireRole('ADMIN'), [
   }
 
   try {
-    const capacity = await prisma.quayDailyCapacity.upsert({
-      where: { quayId: req.params.id },
-      update: {
-        maxParcelsPerDay: Number(req.body.maxParcelsPerDay),
-        maxPalletsPerDay: Number(req.body.maxPalletsPerDay),
-      },
-      create: {
-        quayId: req.params.id,
-        maxParcelsPerDay: Number(req.body.maxParcelsPerDay),
-        maxPalletsPerDay: Number(req.body.maxPalletsPerDay),
-      },
-    });
+    const maxParcelsPerDay = Number(req.body.maxParcelsPerDay);
+    const maxPalletsPerDay = Number(req.body.maxPalletsPerDay);
+    const capacity = await upsertQuayCapacity(req.params.id, maxParcelsPerDay, maxPalletsPerDay);
 
     res.json(capacity);
   } catch (error: any) {
     if (error?.code === 'P2021') {
-      return res.status(500).json({
-        error: 'Table de capacite absente en base. Executez prisma db push sur Railway.',
-      });
+      try {
+        await ensureQuayCapacityTable();
+        const recovered = await upsertQuayCapacity(
+          req.params.id,
+          Number(req.body.maxParcelsPerDay),
+          Number(req.body.maxPalletsPerDay)
+        );
+        return res.json(recovered);
+      } catch {
+        return res.status(500).json({
+          error: 'Table de capacite absente en base. Executez prisma db push sur Railway.',
+        });
+      }
     }
 
     if (error?.code === 'P2003') {
