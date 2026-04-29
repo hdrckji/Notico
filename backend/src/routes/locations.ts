@@ -12,27 +12,28 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     });
     res.json(locations);
   } catch (error: any) {
-    // If capacity table is not yet deployed, return locations/quays without failing the whole admin page.
-    if (error?.code === 'P2021') {
-      try {
-        const fallbackLocations = await prisma.deliveryLocation.findMany({
-          include: { quays: true },
-        });
+    try {
+      const fallbackLocations = await prisma.deliveryLocation.findMany({
+        include: { quays: true },
+      });
 
-        const normalized = fallbackLocations.map((location) => ({
-          ...location,
-          quays: location.quays.map((quay) => ({ ...quay, capacity: null })),
-        }));
+      const normalized = fallbackLocations.map((location) => ({
+        ...location,
+        quays: location.quays.map((quay) => ({ ...quay, capacity: null })),
+      }));
 
-        return res.json(normalized);
-      } catch {
+      return res.json(normalized);
+    } catch (fallbackError: any) {
+      if (error?.code === 'P2021' || fallbackError?.code === 'P2021') {
         return res.status(500).json({
           error: 'Table de capacite absente en base. Executez prisma db push sur Railway.',
         });
       }
-    }
 
-    res.status(500).json({ error: 'Failed to fetch locations' });
+      return res.status(500).json({
+        error: fallbackError?.message || error?.message || 'Failed to fetch locations',
+      });
+    }
   }
 });
 
