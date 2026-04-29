@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import client from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
-type AdminSection = 'overview' | 'suppliers' | 'users' | 'locations' | 'quays' | 'assignments' | 'appointments';
+type AdminSection = 'overview' | 'suppliers' | 'users' | 'locations' | 'quays' | 'capacities' | 'assignments' | 'appointments';
 type AppointmentStatus = 'SCHEDULED' | 'DELIVERED' | 'RESCHEDULED' | 'NO_SHOW' | 'CANCELLED';
 
 interface Appointment {
@@ -27,7 +27,11 @@ interface Supplier {
   postalCode: string;
   city: string;
   contact: string;
-  maxDailyVolume: number;
+}
+
+interface QuayCapacity {
+  maxParcelsPerDay: number;
+  maxPalletsPerDay: number;
 }
 
 interface InternalUser {
@@ -44,6 +48,7 @@ interface Quay {
   id: string;
   name: string;
   locationId: string;
+  capacity?: QuayCapacity | null;
 }
 
 interface Location {
@@ -84,12 +89,13 @@ export default function AdminDashboard() {
     name: '',
     email: '',
     phone: '',
+            { id: 'capacities', label: 'Capacites max' },
     address: '',
     postalCode: '',
     city: '',
     contact: '',
-    maxDailyVolume: 100,
   });
+  const [capacityDrafts, setCapacityDrafts] = useState<Record<string, QuayCapacity>>({});
 
   const [userForm, setUserForm] = useState({
     email: '',
@@ -150,6 +156,17 @@ export default function AdminDashboard() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const nextDrafts: Record<string, QuayCapacity> = {};
+    allQuays.forEach((q) => {
+      nextDrafts[q.id] = {
+        maxParcelsPerDay: q.capacity?.maxParcelsPerDay ?? 100,
+        maxPalletsPerDay: q.capacity?.maxPalletsPerDay ?? 100,
+      };
+    });
+    setCapacityDrafts(nextDrafts);
+  }, [allQuays]);
+
   const resetNotices = () => {
     setMessage('');
     setError('');
@@ -170,7 +187,6 @@ export default function AdminDashboard() {
         postalCode: '',
         city: '',
         contact: '',
-        maxDailyVolume: 100,
       });
       await loadData();
     } catch (err: any) {
@@ -364,6 +380,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSaveCapacity = async (quayId: string) => {
+    resetNotices();
+    try {
+      const draft = capacityDrafts[quayId];
+      if (!draft) return;
+      await client.put(`/admin/quays/${quayId}/capacity`, draft);
+      setMessage('Capacite du quai mise a jour.');
+      await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Mise a jour de capacite impossible.');
+    }
+  };
+
   const handleAssignQuay = async (event: FormEvent) => {
     event.preventDefault();
     resetNotices();
@@ -470,7 +499,6 @@ export default function AdminDashboard() {
                       <input className="rounded border p-2 sm:col-span-2" placeholder="Adresse" value={editingSupplier.address} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, address: e.target.value }))} />
                       <input className="rounded border p-2" placeholder="Code postal" value={editingSupplier.postalCode} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, postalCode: e.target.value }))} />
                       <input className="rounded border p-2" placeholder="Ville" value={editingSupplier.city} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, city: e.target.value }))} />
-                      <input className="rounded border p-2" placeholder="Volume max/jour" type="number" min={1} value={editingSupplier.maxDailyVolume} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, maxDailyVolume: Number(e.target.value) || 1 }))} />
                       <div className="flex gap-2 sm:col-span-2">
                         <button type="submit" className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Enregistrer</button>
                         <button type="button" onClick={() => setEditingSupplier(null)} className="rounded border px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
@@ -490,7 +518,6 @@ export default function AdminDashboard() {
                   <input className="rounded border p-2 sm:col-span-2" placeholder="Adresse" value={supplierForm.address} onChange={(e) => setSupplierForm((prev) => ({ ...prev, address: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Code postal" value={supplierForm.postalCode} onChange={(e) => setSupplierForm((prev) => ({ ...prev, postalCode: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Ville" value={supplierForm.city} onChange={(e) => setSupplierForm((prev) => ({ ...prev, city: e.target.value }))} />
-                  <input className="rounded border p-2" placeholder="Volume max/jour" type="number" min={1} value={supplierForm.maxDailyVolume} onChange={(e) => setSupplierForm((prev) => ({ ...prev, maxDailyVolume: Number(e.target.value) || 1 }))} />
                   <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer fournisseur</button>
                 </form>
               </div>
@@ -719,6 +746,63 @@ export default function AdminDashboard() {
                     <button onClick={() => handleDeleteQuay(quay.id)} className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700">Supprimer</button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'capacities' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">Parametres des capacites max</h2>
+              <p className="text-sm text-slate-600">Definissez la capacite journaliere de chaque quai en colis et en palettes.</p>
+
+              <div className="space-y-2">
+                {allQuays.map((quay) => {
+                  const draft = capacityDrafts[quay.id] || { maxParcelsPerDay: 100, maxPalletsPerDay: 100 };
+                  return (
+                    <div key={quay.id} className="rounded border border-slate-200 p-3 text-sm">
+                      <div className="mb-2">
+                        <p className="font-semibold">{quay.name}</p>
+                        <p className="text-slate-600">Site: {quay.locationName}</p>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <input
+                          className="rounded border p-2"
+                          type="number"
+                          min={0}
+                          value={draft.maxParcelsPerDay}
+                          onChange={(e) => setCapacityDrafts((prev) => ({
+                            ...prev,
+                            [quay.id]: {
+                              ...draft,
+                              maxParcelsPerDay: Number(e.target.value) || 0,
+                            },
+                          }))}
+                          placeholder="Max colis / jour"
+                        />
+                        <input
+                          className="rounded border p-2"
+                          type="number"
+                          min={0}
+                          value={draft.maxPalletsPerDay}
+                          onChange={(e) => setCapacityDrafts((prev) => ({
+                            ...prev,
+                            [quay.id]: {
+                              ...draft,
+                              maxPalletsPerDay: Number(e.target.value) || 0,
+                            },
+                          }))}
+                          placeholder="Max palettes / jour"
+                        />
+                        <button
+                          onClick={() => handleSaveCapacity(quay.id)}
+                          className="rounded bg-slate-900 px-3 py-2 text-white hover:bg-slate-700"
+                        >
+                          Enregistrer
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

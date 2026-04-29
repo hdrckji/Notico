@@ -8,7 +8,7 @@ const router = Router();
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
     const locations = await prisma.deliveryLocation.findMany({
-      include: { quays: true },
+      include: { quays: { include: { capacity: true } } },
     });
     res.json(locations);
   } catch (error) {

@@ -27,7 +27,6 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
         postalCode: req.body.postalCode,
         city: req.body.city,
         contact: req.body.contact,
-        maxDailyVolume: req.body.maxDailyVolume || 100,
       },
     });
 
@@ -50,7 +49,6 @@ router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: R
         postalCode: req.body.postalCode,
         city: req.body.city,
         contact: req.body.contact,
-        maxDailyVolume: req.body.maxDailyVolume,
       },
     });
     res.json(supplier);
@@ -247,6 +245,34 @@ router.post('/quays', authMiddleware, requireRole('ADMIN'), [
     res.status(201).json(quay);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create quay' });
+  }
+});
+
+// Update quay daily capacities
+router.put('/quays/:id/capacity', authMiddleware, requireRole('ADMIN'), [
+  body('maxParcelsPerDay').isInt({ min: 0 }),
+  body('maxPalletsPerDay').isInt({ min: 0 }),
+], async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  try {
+    const capacity = await prisma.quayDailyCapacity.upsert({
+      where: { quayId: req.params.id },
+      update: {
+        maxParcelsPerDay: Number(req.body.maxParcelsPerDay),
+        maxPalletsPerDay: Number(req.body.maxPalletsPerDay),
+      },
+      create: {
+        quayId: req.params.id,
+        maxParcelsPerDay: Number(req.body.maxParcelsPerDay),
+        maxPalletsPerDay: Number(req.body.maxPalletsPerDay),
+      },
+    });
+
+    res.json(capacity);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update quay capacity' });
   }
 });
 

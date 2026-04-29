@@ -41,7 +41,6 @@ model Supplier {
   postalCode        String
   city              String
   contact           String
-  maxDailyVolume    Int      @default(100)
   assignedQuays     QuayAssignment[]
   appointments      Appointment[]
   createdAt         DateTime @default(now())
@@ -89,11 +88,23 @@ model Quay {
   assignments       QuayAssignment[]
   appointments      Appointment[]
   userAccess        UserQuayAccess[]
+  capacity          QuayDailyCapacity?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@unique([locationId, name])
   @@map("quays")
+}
+
+model QuayDailyCapacity {
+  quayId            String   @id
+  quay              Quay     @relation(fields: [quayId], references: [id], onDelete: Cascade)
+  maxParcelsPerDay  Int      @default(100)
+  maxPalletsPerDay  Int      @default(100)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("quay_daily_capacities")
 }
 
 model UserQuayAccess {
