@@ -36,6 +36,7 @@ model Supplier {
   id                String   @id @default(cuid())
   name              String
   email             String   @unique
+  password          String
   phone             String
   address           String
   postalCode        String

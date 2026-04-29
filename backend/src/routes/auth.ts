@@ -18,12 +18,15 @@ router.post('/supplier/login', [
 
   try {
     const { email, password } = req.body;
-    
-    // In a real app, suppliers would be authenticated differently
-    // This is a placeholder - adjust based on your supplier auth method
+
     const supplier = await prisma.supplier.findUnique({ where: { email } });
-    
+
     if (!supplier) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, supplier.password);
+    if (!passwordMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 

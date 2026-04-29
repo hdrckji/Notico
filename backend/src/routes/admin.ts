@@ -12,21 +12,35 @@ const router = Router();
 router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
   body('name').notEmpty(),
   body('email').notEmpty(),
+  body('password').isLength({ min: 6 }),
   body('phone').notEmpty(),
 ], async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+
     const supplier = await prisma.supplier.create({
       data: {
         name: req.body.name,
         email: req.body.email,
+        password: hashedPassword,
         phone: req.body.phone,
         address: req.body.address,
         postalCode: req.body.postalCode,
         city: req.body.city,
         contact: req.body.contact,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        postalCode: true,
+        city: true,
+        contact: true,
       },
     });
 
@@ -39,16 +53,31 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
 // Update supplier
 router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
   try {
+    const data: any = {
+      name: req.body.name,
+      email: req.body.email,
+      phone: req.body.phone,
+      address: req.body.address,
+      postalCode: req.body.postalCode,
+      city: req.body.city,
+      contact: req.body.contact,
+    };
+    if (req.body.password && req.body.password.length >= 6) {
+      data.password = await bcrypt.hash(req.body.password, 10);
+    }
+
     const supplier = await prisma.supplier.update({
       where: { id: req.params.id },
-      data: {
-        name: req.body.name,
-        email: req.body.email,
-        phone: req.body.phone,
-        address: req.body.address,
-        postalCode: req.body.postalCode,
-        city: req.body.city,
-        contact: req.body.contact,
+      data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        postalCode: true,
+        city: true,
+        contact: true,
       },
     });
     res.json(supplier);

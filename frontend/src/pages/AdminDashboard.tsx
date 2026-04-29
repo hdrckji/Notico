@@ -70,7 +70,7 @@ export default function AdminDashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<(Supplier & { password?: string }) | null>(null);
   const [editingUser, setEditingUser] = useState<(InternalUser & { password?: string }) | null>(null);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -88,6 +88,7 @@ export default function AdminDashboard() {
   const [supplierForm, setSupplierForm] = useState({
     name: '',
     email: '',
+    password: '',
     phone: '',
     address: '',
     postalCode: '',
@@ -181,6 +182,7 @@ export default function AdminDashboard() {
       setSupplierForm({
         name: '',
         email: '',
+        password: '',
         phone: '',
         address: '',
         postalCode: '',
@@ -494,6 +496,7 @@ export default function AdminDashboard() {
                     <form onSubmit={handleUpdateSupplier} className="grid gap-3 sm:grid-cols-2">
                       <input className="rounded border p-2" placeholder="Nom" required value={editingSupplier.name} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, name: e.target.value }))} />
                       <input className="rounded border p-2" placeholder="Identifiant" type="text" required value={editingSupplier.email} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, email: e.target.value }))} />
+                      <input className="rounded border p-2" placeholder="Nouveau mot de passe (optionnel)" type="password" minLength={6} value={editingSupplier.password || ''} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, password: e.target.value }))} />
                       <input className="rounded border p-2" placeholder="Telephone" value={editingSupplier.phone} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, phone: e.target.value }))} />
                       <input className="rounded border p-2" placeholder="Contact" value={editingSupplier.contact} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, contact: e.target.value }))} />
                       <input className="rounded border p-2 sm:col-span-2" placeholder="Adresse" value={editingSupplier.address} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, address: e.target.value }))} />
@@ -513,6 +516,7 @@ export default function AdminDashboard() {
                 <form onSubmit={handleCreateSupplier} className="grid gap-3 sm:grid-cols-2">
                   <input className="rounded border p-2" placeholder="Nom" required value={supplierForm.name} onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Identifiant / Email" required type="text" value={supplierForm.email} onChange={(e) => setSupplierForm((prev) => ({ ...prev, email: e.target.value }))} />
+                  <input className="rounded border p-2" placeholder="Mot de passe" required minLength={6} type="password" value={supplierForm.password} onChange={(e) => setSupplierForm((prev) => ({ ...prev, password: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Telephone" required value={supplierForm.phone} onChange={(e) => setSupplierForm((prev) => ({ ...prev, phone: e.target.value }))} />
                   <input className="rounded border p-2" placeholder="Contact" value={supplierForm.contact} onChange={(e) => setSupplierForm((prev) => ({ ...prev, contact: e.target.value }))} />
                   <input className="rounded border p-2 sm:col-span-2" placeholder="Adresse" value={supplierForm.address} onChange={(e) => setSupplierForm((prev) => ({ ...prev, address: e.target.value }))} />
@@ -532,7 +536,7 @@ export default function AdminDashboard() {
                         <p className="text-slate-500">{supplier.email}{supplier.city ? ` · ${supplier.city}` : ''}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditingSupplier(supplier)} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>
+                        <button onClick={() => setEditingSupplier({ ...supplier, password: '' })} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>
                         <button onClick={() => handleDeleteSupplier(supplier.id)} className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700">Supprimer</button>
                       </div>
                     </div>

@@ -8,7 +8,17 @@ const router = Router();
 router.get('/', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
   try {
     const suppliers = await prisma.supplier.findMany({
-      include: { assignedQuays: { include: { quay: true } } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        postalCode: true,
+        city: true,
+        contact: true,
+        assignedQuays: { include: { quay: true } },
+      },
     });
     res.json(suppliers);
   } catch (error) {
@@ -25,7 +35,15 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 
     const supplier = await prisma.supplier.findUnique({
       where: { id: req.params.id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        postalCode: true,
+        city: true,
+        contact: true,
         assignedQuays: { include: { quay: true } },
         appointments: { orderBy: { scheduledDate: 'desc' } },
       },
