@@ -122,7 +122,6 @@ export default function AdminDashboard() {
     supplierId: '',
     quayId: '',
   });
-            { id: 'capacities', label: 'Capacites max' },
 
   const allQuays = useMemo(
     () => locations.flatMap((location) => location.quays.map((quay) => ({ ...quay, locationName: location.name }))),
@@ -432,6 +431,7 @@ export default function AdminDashboard() {
             { id: 'users', label: 'Utilisateurs' },
             { id: 'locations', label: 'Sites' },
             { id: 'quays', label: 'Quais' },
+            { id: 'capacities', label: 'Capacites max' },
             { id: 'assignments', label: 'Affectations' },
             { id: 'appointments', label: 'Rendez-vous' },
           ].map((section) => (
