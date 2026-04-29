@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { authMiddleware, requireRole } from '../middleware/auth';
@@ -304,6 +305,20 @@ router.put('/quays/:id/capacity', authMiddleware, requireRole('ADMIN'), [
 
     res.json(capacity);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2021') {
+        return res.status(500).json({
+          error: 'Table de capacite absente en base. Executez prisma db push sur Railway.',
+        });
+      }
+
+      if (error.code === 'P2003') {
+        return res.status(400).json({
+          error: 'Quai introuvable ou relation invalide.',
+        });
+      }
+    }
+
     res.status(500).json({ error: 'Failed to update quay capacity' });
   }
 });

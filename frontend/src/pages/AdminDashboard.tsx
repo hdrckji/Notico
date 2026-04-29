@@ -391,7 +391,8 @@ export default function AdminDashboard() {
       await loadData();
     } catch (err: any) {
       const validationError = err.response?.data?.errors?.[0]?.msg;
-      setError(validationError || err.response?.data?.error || 'Mise a jour de capacite impossible.');
+      const transportError = err.message;
+      setError(validationError || err.response?.data?.error || transportError || 'Mise a jour de capacite impossible.');
     }
   };
 
