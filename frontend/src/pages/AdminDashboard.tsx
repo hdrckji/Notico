@@ -390,7 +390,8 @@ export default function AdminDashboard() {
       setMessage('Capacite du quai mise a jour.');
       await loadData();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Mise a jour de capacite impossible.');
+      const validationError = err.response?.data?.errors?.[0]?.msg;
+      setError(validationError || err.response?.data?.error || 'Mise a jour de capacite impossible.');
     }
   };
 

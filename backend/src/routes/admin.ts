@@ -279,11 +279,14 @@ router.post('/quays', authMiddleware, requireRole('ADMIN'), [
 
 // Update quay daily capacities
 router.put('/quays/:id/capacity', authMiddleware, requireRole('ADMIN'), [
-  body('maxParcelsPerDay').isInt({ min: 0 }),
-  body('maxPalletsPerDay').isInt({ min: 0 }),
+  body('maxParcelsPerDay').isInt({ min: 0 }).withMessage('Le nombre de colis doit etre un entier >= 0').toInt(),
+  body('maxPalletsPerDay').isInt({ min: 0 }).withMessage('Le nombre de palettes doit etre un entier >= 0').toInt(),
 ], async (req: Request, res: Response) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  if (!errors.isEmpty()) {
+    const firstMessage = errors.array()[0]?.msg || 'Validation failed';
+    return res.status(400).json({ error: firstMessage, errors: errors.array() });
+  }
 
   try {
     const capacity = await prisma.quayDailyCapacity.upsert({
