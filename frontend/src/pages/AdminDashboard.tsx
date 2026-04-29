@@ -797,7 +797,7 @@ export default function AdminDashboard() {
                           onClick={() => handleSaveCapacity(quay.id)}
                           className="rounded bg-slate-900 px-3 py-2 text-white hover:bg-slate-700"
                         >
-                          Enregistrer
+                          Sauvegarder
                         </button>
                       </div>
                     </div>
