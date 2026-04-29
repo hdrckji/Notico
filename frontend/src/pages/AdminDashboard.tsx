@@ -765,34 +765,40 @@ export default function AdminDashboard() {
                         <p className="text-slate-600">Site: {quay.locationName}</p>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-3">
-                        <input
-                          className="rounded border p-2"
-                          type="number"
-                          min={0}
-                          value={draft.maxParcelsPerDay}
-                          onChange={(e) => setCapacityDrafts((prev) => ({
-                            ...prev,
-                            [quay.id]: {
-                              ...draft,
-                              maxParcelsPerDay: Number(e.target.value) || 0,
-                            },
-                          }))}
-                          placeholder="Max colis / jour"
-                        />
-                        <input
-                          className="rounded border p-2"
-                          type="number"
-                          min={0}
-                          value={draft.maxPalletsPerDay}
-                          onChange={(e) => setCapacityDrafts((prev) => ({
-                            ...prev,
-                            [quay.id]: {
-                              ...draft,
-                              maxPalletsPerDay: Number(e.target.value) || 0,
-                            },
-                          }))}
-                          placeholder="Max palettes / jour"
-                        />
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-600">Colis max / jour</label>
+                          <input
+                            className="w-full rounded border p-2"
+                            type="number"
+                            min={0}
+                            value={draft.maxParcelsPerDay}
+                            onChange={(e) => setCapacityDrafts((prev) => ({
+                              ...prev,
+                              [quay.id]: {
+                                ...draft,
+                                maxParcelsPerDay: Number(e.target.value) || 0,
+                              },
+                            }))}
+                            placeholder="Colis"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-600">Palettes max / jour</label>
+                          <input
+                            className="w-full rounded border p-2"
+                            type="number"
+                            min={0}
+                            value={draft.maxPalletsPerDay}
+                            onChange={(e) => setCapacityDrafts((prev) => ({
+                              ...prev,
+                              [quay.id]: {
+                                ...draft,
+                                maxPalletsPerDay: Number(e.target.value) || 0,
+                              },
+                            }))}
+                            placeholder="Palettes"
+                          />
+                        </div>
                         <button
                           onClick={() => handleSaveCapacity(quay.id)}
                           className="rounded bg-slate-900 px-3 py-2 text-white hover:bg-slate-700"
