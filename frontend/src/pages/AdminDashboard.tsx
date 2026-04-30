@@ -57,6 +57,7 @@ interface Location {
   address: string;
   city: string;
   postalCode: string;
+  orderPrefix?: string | null;
   quays: Quay[];
 }
 
@@ -112,6 +113,7 @@ export default function AdminDashboard() {
     address: '',
     city: '',
     postalCode: '',
+    orderPrefix: '',
   });
 
   const [quayForm, setQuayForm] = useState({
@@ -322,7 +324,7 @@ export default function AdminDashboard() {
     try {
       await client.post('/admin/locations', locationForm);
       setMessage('Site de livraison cree avec succes.');
-      setLocationForm({ name: '', address: '', city: '', postalCode: '' });
+      setLocationForm({ name: '', address: '', city: '', postalCode: '', orderPrefix: '' });
       await loadData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Creation du site impossible.');
@@ -692,6 +694,14 @@ export default function AdminDashboard() {
                       <input className="rounded border p-2" placeholder="Adresse" required value={editingLocation.address} onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, address: e.target.value }))} />
                       <input className="rounded border p-2" placeholder="Ville" required value={editingLocation.city} onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, city: e.target.value }))} />
                       <input className="rounded border p-2" placeholder="Code postal" required value={editingLocation.postalCode} onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, postalCode: e.target.value }))} />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Prefixe commande (5 chiffres)"
+                        required
+                        pattern="\\d{5}"
+                        value={editingLocation.orderPrefix || ''}
+                        onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, orderPrefix: e.target.value }))}
+                      />
                       <div className="flex gap-2 sm:col-span-2">
                         <button type="submit" className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Enregistrer</button>
                         <button type="button" onClick={() => setEditingLocation(null)} className="rounded border px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
@@ -707,6 +717,14 @@ export default function AdminDashboard() {
                 <input className="rounded border p-2" placeholder="Adresse" required value={locationForm.address} onChange={(e) => setLocationForm((prev) => ({ ...prev, address: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Ville" required value={locationForm.city} onChange={(e) => setLocationForm((prev) => ({ ...prev, city: e.target.value }))} />
                 <input className="rounded border p-2" placeholder="Code postal" required value={locationForm.postalCode} onChange={(e) => setLocationForm((prev) => ({ ...prev, postalCode: e.target.value }))} />
+                <input
+                  className="rounded border p-2"
+                  placeholder="Prefixe commande (5 chiffres)"
+                  required
+                  pattern="\\d{5}"
+                  value={locationForm.orderPrefix}
+                  onChange={(e) => setLocationForm((prev) => ({ ...prev, orderPrefix: e.target.value }))}
+                />
                 <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer site</button>
               </form>
 
@@ -716,6 +734,7 @@ export default function AdminDashboard() {
                     <div>
                       <p className="font-semibold">{location.name}</p>
                       <p className="text-slate-600">{location.address}, {location.city} {location.postalCode}</p>
+                      <p className="text-slate-500 text-xs">Prefixe commande: {location.orderPrefix || 'Non defini'}</p>
                       <p className="text-slate-400 text-xs">{location.quays.length} quai(s)</p>
                     </div>
                     <div className="flex gap-2">

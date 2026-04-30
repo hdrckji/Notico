@@ -16,6 +16,7 @@ interface Appointment {
 interface DeliveryLocation {
   id: string;
   name: string;
+  orderPrefix?: string | null;
 }
 
 interface AvailableSlot {
@@ -38,11 +39,11 @@ export default function SupplierDashboard() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [resolvedLocation, setResolvedLocation] = useState<DeliveryLocation | null>(null);
   const [bookingForm, setBookingForm] = useState({
     orderNumber: '',
     volume: 1,
     deliveryType: 'PALLET' as 'PALLET' | 'PARCEL',
-    locationId: '',
   });
   const { logout } = useAuthStore();
 
@@ -61,6 +62,7 @@ export default function SupplierDashboard() {
       const locationsData = (locationsResponse.data || []).map((location: any) => ({
         id: location.id,
         name: location.name,
+        orderPrefix: location.orderPrefix || null,
       }));
       setLocations(locationsData);
     } catch (loadError) {
@@ -80,14 +82,30 @@ export default function SupplierDashboard() {
     }
   };
 
+  const resolveLocationByOrderNumber = (orderNumber: string) => {
+    const prefix = orderNumber.trim().slice(0, 5);
+    if (!/^\d{5}$/.test(prefix)) {
+      return null;
+    }
+    return locations.find((location) => location.orderPrefix === prefix) || null;
+  };
+
   const handleFindSlots = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
     setMessage('');
     setSelectedSlot(null);
 
-    if (!bookingForm.locationId || bookingForm.volume <= 0) {
-      setError('Selectionnez un site et un volume valide.');
+    const inferredLocation = resolveLocationByOrderNumber(bookingForm.orderNumber);
+    setResolvedLocation(inferredLocation);
+
+    if (!inferredLocation) {
+      setError('Aucun site ne correspond aux 5 premiers chiffres de ce numero de commande.');
+      return;
+    }
+
+    if (bookingForm.volume <= 0) {
+      setError('Indiquez un volume valide.');
       return;
     }
 
@@ -95,7 +113,8 @@ export default function SupplierDashboard() {
       setFindingSlots(true);
       const { data } = await client.get('/appointments/available-slots', {
         params: {
-          locationId: bookingForm.locationId,
+          orderNumber: bookingForm.orderNumber.trim(),
+          locationId: inferredLocation.id,
           deliveryType: bookingForm.deliveryType,
           volume: bookingForm.volume,
         },
@@ -140,6 +159,7 @@ export default function SupplierDashboard() {
       setMessage('Rendez-vous cree avec succes.');
       setAvailableSlots([]);
       setSelectedSlot(null);
+      setResolvedLocation(null);
       setBookingForm((prev) => ({ ...prev, orderNumber: '' }));
       await fetchAppointments();
     } catch (saveError: any) {
@@ -171,7 +191,7 @@ export default function SupplierDashboard() {
             <section className="bg-white rounded-xl shadow p-5 space-y-4">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Demande de livraison</h2>
-                <p className="text-sm text-gray-600">Indiquez le volume et le site pour recevoir les prochains creneaux disponibles.</p>
+                <p className="text-sm text-gray-600">Indiquez le numero de commande et le volume pour recevoir les prochains creneaux disponibles.</p>
               </div>
 
               {error && <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
@@ -182,21 +202,23 @@ export default function SupplierDashboard() {
                   className="rounded border p-2"
                   placeholder="Numero de commande"
                   value={bookingForm.orderNumber}
-                  onChange={(e) => setBookingForm((prev) => ({ ...prev, orderNumber: e.target.value }))}
+                  onChange={(e) => {
+                    const nextOrderNumber = e.target.value;
+                    setBookingForm((prev) => ({ ...prev, orderNumber: nextOrderNumber }));
+                    setResolvedLocation(resolveLocationByOrderNumber(nextOrderNumber));
+                    setAvailableSlots([]);
+                    setSelectedSlot(null);
+                    setError('');
+                    setMessage('');
+                  }}
                   required
                 />
 
-                <select
-                  className="rounded border p-2"
-                  value={bookingForm.locationId}
-                  onChange={(e) => setBookingForm((prev) => ({ ...prev, locationId: e.target.value }))}
-                  required
-                >
-                  <option value="">Selectionner un site</option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>{location.name}</option>
-                  ))}
-                </select>
+                <div className="rounded border p-2 text-sm text-slate-700 bg-slate-50">
+                  {resolvedLocation
+                    ? `Site detecte automatiquement: ${resolvedLocation.name}`
+                    : 'Site detecte automatiquement selon les 5 premiers chiffres du numero de commande'}
+                </div>
 
                 <select
                   className="rounded border p-2"

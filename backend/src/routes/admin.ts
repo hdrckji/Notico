@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { authMiddleware, requireRole } from '../middleware/auth';
@@ -31,6 +32,28 @@ const ensureQuayCapacityTable = async () => {
       "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "quay_daily_capacities_quayId_fkey"
         FOREIGN KEY ("quayId") REFERENCES "quays"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE
+    );
+  `);
+};
+
+const ensureSupplierPasswordColumn = async () => {
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE IF EXISTS "suppliers"
+    ADD COLUMN IF NOT EXISTS "password" TEXT;
+  `);
+};
+
+const ensureLocationOrderPrefixRulesTable = async () => {
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "location_order_prefix_rules" (
+      "id" TEXT PRIMARY KEY,
+      "locationId" TEXT NOT NULL UNIQUE,
+      "orderPrefix" TEXT NOT NULL UNIQUE,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "location_order_prefix_rules_locationId_fkey"
+        FOREIGN KEY ("locationId") REFERENCES "delivery_locations"("id")
         ON DELETE CASCADE ON UPDATE CASCADE
     );
   `);
@@ -83,6 +106,10 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
 // Update supplier
 router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
   try {
+    if (typeof req.body.password === 'string' && req.body.password.length > 0 && req.body.password.length < 6) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caracteres.' });
+    }
+
     const data: any = {
       name: req.body.name,
       email: req.body.email,
@@ -111,7 +138,57 @@ router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: R
       },
     });
     res.json(supplier);
-  } catch (error) {
+  } catch (error: any) {
+    const isMissingPasswordColumn =
+      error instanceof Prisma.PrismaClientKnownRequestError
+      && error.code === 'P2022'
+      && String(error.meta?.column || '').includes('password');
+
+    if (isMissingPasswordColumn) {
+      try {
+        await ensureSupplierPasswordColumn();
+
+        const retryData: any = {
+          name: req.body.name,
+          email: req.body.email,
+          phone: req.body.phone,
+          address: req.body.address,
+          postalCode: req.body.postalCode,
+          city: req.body.city,
+          contact: req.body.contact,
+        };
+
+        if (req.body.password && req.body.password.length >= 6) {
+          retryData.password = await bcrypt.hash(req.body.password, 10);
+        }
+
+        const supplier = await prisma.supplier.update({
+          where: { id: req.params.id },
+          data: retryData,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            address: true,
+            postalCode: true,
+            city: true,
+            contact: true,
+          },
+        });
+
+        return res.json(supplier);
+      } catch (retryError) {
+        console.error('Supplier update retry failed:', retryError);
+        return res.status(500).json({ error: 'Failed to update supplier' });
+      }
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return res.status(409).json({ error: 'Un fournisseur avec cet identifiant existe deja.' });
+    }
+
+    console.error('Supplier update failed:', error);
     res.status(500).json({ error: 'Failed to update supplier' });
   }
 });
@@ -234,6 +311,7 @@ router.delete('/users/:id', authMiddleware, requireRole('ADMIN'), async (req: Re
 router.post('/locations', authMiddleware, requireRole('ADMIN'), [
   body('name').notEmpty(),
   body('address').notEmpty(),
+  body('orderPrefix').matches(/^\d{5}$/).withMessage('Le prefixe de commande doit contenir exactement 5 chiffres.'),
 ], async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -248,14 +326,33 @@ router.post('/locations', authMiddleware, requireRole('ADMIN'), [
       },
     });
 
-    res.status(201).json(location);
-  } catch (error) {
+    await ensureLocationOrderPrefixRulesTable();
+    await prisma.$executeRawUnsafe(
+      `
+        INSERT INTO "location_order_prefix_rules" ("id", "locationId", "orderPrefix", "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `,
+      `lopr_${location.id}`,
+      location.id,
+      String(req.body.orderPrefix)
+    );
+
+    res.status(201).json({ ...location, orderPrefix: String(req.body.orderPrefix) });
+  } catch (error: any) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return res.status(409).json({ error: 'Ce prefixe de commande est deja utilise par un autre site.' });
+    }
     res.status(500).json({ error: 'Failed to create location' });
   }
 });
 
 // Update location
-router.put('/locations/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+router.put('/locations/:id', authMiddleware, requireRole('ADMIN'), [
+  body('orderPrefix').matches(/^\d{5}$/).withMessage('Le prefixe de commande doit contenir exactement 5 chiffres.'),
+], async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   try {
     const location = await prisma.deliveryLocation.update({
       where: { id: req.params.id },
@@ -266,8 +363,25 @@ router.put('/locations/:id', authMiddleware, requireRole('ADMIN'), async (req: R
         postalCode: req.body.postalCode,
       },
     });
-    res.json(location);
-  } catch (error) {
+
+    await ensureLocationOrderPrefixRulesTable();
+    await prisma.$executeRawUnsafe(
+      `
+        INSERT INTO "location_order_prefix_rules" ("id", "locationId", "orderPrefix", "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT ("locationId") DO UPDATE
+        SET "orderPrefix" = EXCLUDED."orderPrefix", "updatedAt" = CURRENT_TIMESTAMP
+      `,
+      `lopr_${location.id}`,
+      location.id,
+      String(req.body.orderPrefix)
+    );
+
+    res.json({ ...location, orderPrefix: String(req.body.orderPrefix) });
+  } catch (error: any) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return res.status(409).json({ error: 'Ce prefixe de commande est deja utilise par un autre site.' });
+    }
     res.status(500).json({ error: 'Failed to update location' });
   }
 });

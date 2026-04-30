@@ -9,6 +9,8 @@ const DEFAULT_DAILY_CAPACITY = 100;
 const AVAILABILITY_LOOKAHEAD_DAYS = 21;
 const AVAILABILITY_SLOT_LIMIT = 8;
 
+const ORDER_PREFIX_REGEX = /^\d{5}$/;
+
 type QuayWithCapacity = {
   id: string;
   name: string;
@@ -17,6 +19,37 @@ type QuayWithCapacity = {
     maxParcelsPerDay: number;
     maxPalletsPerDay: number;
   } | null;
+};
+
+const ensureLocationOrderPrefixRulesTable = async () => {
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "location_order_prefix_rules" (
+      "id" TEXT PRIMARY KEY,
+      "locationId" TEXT NOT NULL UNIQUE,
+      "orderPrefix" TEXT NOT NULL UNIQUE,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "location_order_prefix_rules_locationId_fkey"
+        FOREIGN KEY ("locationId") REFERENCES "delivery_locations"("id")
+        ON DELETE CASCADE ON UPDATE CASCADE
+    );
+  `);
+};
+
+const getOrderPrefix = (orderNumber: string) => orderNumber.trim().slice(0, 5);
+
+const resolveLocationIdByOrderNumber = async (orderNumber: string) => {
+  const orderPrefix = getOrderPrefix(orderNumber);
+  if (!ORDER_PREFIX_REGEX.test(orderPrefix)) {
+    return null;
+  }
+
+  await ensureLocationOrderPrefixRulesTable();
+  const rows = await prisma.$queryRawUnsafe<Array<{ locationId: string }>>(
+    'SELECT "locationId" FROM "location_order_prefix_rules" WHERE "orderPrefix" = $1 LIMIT 1',
+    orderPrefix
+  );
+  return rows[0]?.locationId || null;
 };
 
 const getDayBounds = (date: Date) => {
@@ -84,13 +117,20 @@ const getUsedVolumesByQuayAndDay = async (
 // Create appointment (supplier or admin)
 router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN'), async (req: Request, res: Response) => {
   try {
-    const { orderNumber, volume, deliveryType, locationId, supplierId } = req.body;
+    const { orderNumber, volume, deliveryType, supplierId } = req.body;
     const requestedVolume = Number(volume);
     const parsedDate = new Date(req.body.scheduledDate);
+    const providedLocationId = req.body.locationId;
+    const mappedLocationId = orderNumber ? await resolveLocationIdByOrderNumber(String(orderNumber)) : null;
+    const locationId = req.user?.role === 'SUPPLIER' ? mappedLocationId : (mappedLocationId || providedLocationId);
     let quayId: string | null = req.body.quayId || null;
 
     if (!orderNumber || !locationId || !parsedDate || Number.isNaN(parsedDate.getTime()) || requestedVolume <= 0 || !['PARCEL', 'PALLET'].includes(deliveryType)) {
       return res.status(400).json({ error: 'Invalid appointment payload' });
+    }
+
+    if (!mappedLocationId && req.user?.role === 'SUPPLIER') {
+      return res.status(400).json({ error: 'Aucun site ne correspond aux 5 premiers chiffres de ce numero de commande.' });
     }
 
     if (quayId) {
@@ -186,12 +226,19 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN'), async (req: R
 // Get next available slots for supplier booking
 router.get('/available-slots', authMiddleware, requireRole('SUPPLIER', 'ADMIN'), async (req: Request, res: Response) => {
   try {
-    const locationId = String(req.query.locationId || '');
+    const orderNumber = String(req.query.orderNumber || '');
+    const requestedLocationId = String(req.query.locationId || '');
+    const mappedLocationId = orderNumber ? await resolveLocationIdByOrderNumber(orderNumber) : null;
+    const locationId = mappedLocationId || requestedLocationId;
     const deliveryType = String(req.query.deliveryType || '').toUpperCase() as 'PARCEL' | 'PALLET';
     const volume = Number(req.query.volume || 0);
 
     if (!locationId || !['PARCEL', 'PALLET'].includes(deliveryType) || !Number.isFinite(volume) || volume <= 0) {
-      return res.status(400).json({ error: 'locationId, deliveryType and volume are required' });
+      return res.status(400).json({ error: 'orderNumber ou locationId, deliveryType et volume sont requis' });
+    }
+
+    if (orderNumber && !mappedLocationId) {
+      return res.status(400).json({ error: 'Aucun site ne correspond aux 5 premiers chiffres de ce numero de commande.' });
     }
 
     const location = await prisma.deliveryLocation.findUnique({
