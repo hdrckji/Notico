@@ -76,10 +76,22 @@ model DeliveryLocation {
   quays             Quay[]
   employees         InternalUser[]
   appointments      Appointment[]
+  orderPrefixRule   LocationOrderPrefixRule?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@map("delivery_locations")
+}
+
+model LocationOrderPrefixRule {
+  id           String           @id
+  locationId   String           @unique
+  location     DeliveryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  orderPrefix  String           @unique
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("location_order_prefix_rules")
 }
 
 model Quay {
