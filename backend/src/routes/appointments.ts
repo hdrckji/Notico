@@ -233,6 +233,7 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
         scheduledDate: parsedDate,
         locationId,
         quayId,
+        createdByRole: req.user!.role,
       },
       include: { location: true, supplier: true, quay: true },
     });

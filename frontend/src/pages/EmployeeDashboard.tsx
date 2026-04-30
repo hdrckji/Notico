@@ -12,6 +12,7 @@ interface Appointment {
   deliveryType: 'PALLET' | 'PARCEL';
   scheduledDate: string;
   status: AppointmentStatus;
+  createdByRole?: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER';
   supplier?: { name: string; phone: string };
   location?: { name: string };
   quay?: { name: string };
@@ -48,6 +49,8 @@ const STATUS_COLORS: Record<AppointmentStatus, string> = {
   NO_SHOW: 'bg-red-100 text-red-800 border-red-300',
   CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
 };
+
+const EMPLOYEE_CREATED_CLASSES = 'bg-amber-100 text-amber-900 border-amber-400';
 
 const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
@@ -398,7 +401,9 @@ export default function EmployeeDashboard() {
                           <button
                             key={appt.id}
                             onClick={() => setSelectedAppt(appt)}
-                            className={`w-full rounded border text-left px-1.5 py-1 text-xs leading-tight hover:opacity-80 transition ${STATUS_COLORS[appt.status]}`}
+                            className={`w-full rounded border text-left px-1.5 py-1 text-xs leading-tight hover:opacity-80 transition ${
+                              appt.createdByRole === 'EMPLOYEE' ? EMPLOYEE_CREATED_CLASSES : STATUS_COLORS[appt.status]
+                            }`}
                           >
                             <p className="font-bold truncate">{appt.supplier?.name || '—'}</p>
                             <p className="truncate opacity-75">{appt.orderNumber}</p>
@@ -448,6 +453,12 @@ export default function EmployeeDashboard() {
               <p><span className="font-semibold">Date :</span> {new Date(selectedAppt.scheduledDate).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}</p>
               {selectedAppt.location && <p><span className="font-semibold">Site :</span> {selectedAppt.location.name}</p>}
               {selectedAppt.quay && <p><span className="font-semibold">Quai :</span> {selectedAppt.quay.name}</p>}
+              {selectedAppt.createdByRole === 'EMPLOYEE' && (
+                <p>
+                  <span className="font-semibold">Origine :</span>{' '}
+                  <span className="rounded-full px-2 py-0.5 text-xs font-bold border bg-amber-100 text-amber-900 border-amber-400">Encodé par la logistique</span>
+                </p>
+              )}
               <p>
                 <span className="font-semibold">Statut :</span>{' '}
                 <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${STATUS_COLORS[selectedAppt.status]}`}>{STATUS_LABELS[selectedAppt.status]}</span>
@@ -473,11 +484,14 @@ export default function EmployeeDashboard() {
 
 function AppointmentRow({ appt, updatingId, onUpdate }: { appt: Appointment; updatingId: string | null; onUpdate: (id: string, status: AppointmentStatus) => void }) {
   return (
-    <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between ${appt.createdByRole === 'EMPLOYEE' ? 'bg-amber-50' : ''}`}>
       <div className="space-y-0.5">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-slate-900">{appt.supplier?.name || 'Fournisseur'}</span>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${STATUS_COLORS[appt.status]}`}>{STATUS_LABELS[appt.status]}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${appt.createdByRole === 'EMPLOYEE' ? EMPLOYEE_CREATED_CLASSES : STATUS_COLORS[appt.status]}`}>{STATUS_LABELS[appt.status]}</span>
+          {appt.createdByRole === 'EMPLOYEE' && (
+            <span className="rounded-full px-2 py-0.5 text-xs font-bold border bg-amber-100 text-amber-900 border-amber-400">Non planifiée</span>
+          )}
         </div>
         <p className="text-sm text-slate-600">Commande <span className="font-mono font-semibold">{appt.orderNumber}</span> · {appt.volume} {appt.deliveryType === 'PALLET' ? 'palettes' : 'colis'}</p>
         <p className="text-xs text-slate-400">

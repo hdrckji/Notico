@@ -156,6 +156,7 @@ model Appointment {
   location          DeliveryLocation @relation(fields: [locationId], references: [id])
   quayId            String?
   quay              Quay? @relation(fields: [quayId], references: [id])
+  createdByRole     UserRole @default(SUPPLIER)
   status            AppointmentStatus @default(SCHEDULED)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
