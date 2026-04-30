@@ -7,6 +7,7 @@ export interface User {
   role: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER';
   firstName?: string;
   lastName?: string;
+  locationId?: string | null;
 }
 
 interface AuthStore {

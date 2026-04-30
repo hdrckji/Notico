@@ -17,6 +17,22 @@ interface Appointment {
   quay?: { name: string };
 }
 
+interface SupplierOption {
+  id: string;
+  name: string;
+}
+
+interface QuayOption {
+  id: string;
+  name: string;
+}
+
+interface LocationOption {
+  id: string;
+  name: string;
+  quays: QuayOption[];
+}
+
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Planifié',
   DELIVERED: 'Livré',
@@ -57,6 +73,8 @@ function toLocalISO(date: Date): string {
 export default function EmployeeDashboard() {
   const { logout, user } = useAuthStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -64,14 +82,46 @@ export default function EmployeeDashboard() {
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [createForm, setCreateForm] = useState({
+    supplierId: '',
+    orderNumber: '',
+    volume: 1,
+    deliveryType: 'PALLET' as 'PALLET' | 'PARCEL',
+    locationId: user?.locationId || '',
+    quayId: '',
+    scheduledDate: new Date().toISOString().slice(0, 16),
+  });
 
-  const loadAppointments = async () => {
+  const visibleLocations = useMemo(() => {
+    if (!user?.locationId) {
+      return locations;
+    }
+    return locations.filter((location) => location.id === user.locationId);
+  }, [locations, user?.locationId]);
+
+  const availableQuays = useMemo(() => {
+    const location = visibleLocations.find((item) => item.id === createForm.locationId);
+    return location?.quays || [];
+  }, [visibleLocations, createForm.locationId]);
+
+  const loadDashboardData = async () => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await client.get('/appointments');
-      setAppointments(data);
+      const [appointmentsResponse, suppliersResponse, locationsResponse] = await Promise.all([
+        client.get('/appointments'),
+        client.get('/suppliers'),
+        client.get('/locations'),
+      ]);
+      setAppointments(appointmentsResponse.data || []);
+      setSuppliers((suppliersResponse.data || []).map((supplier: any) => ({ id: supplier.id, name: supplier.name })));
+      setLocations((locationsResponse.data || []).map((location: any) => ({
+        id: location.id,
+        name: location.name,
+        quays: (location.quays || []).map((quay: any) => ({ id: quay.id, name: quay.name })),
+      })));
     } catch (err: any) {
       setError(err.response?.data?.error || 'Impossible de charger les rendez-vous.');
     } finally {
@@ -80,7 +130,7 @@ export default function EmployeeDashboard() {
   };
 
   useEffect(() => {
-    loadAppointments();
+    loadDashboardData();
   }, []);
 
   const updateStatus = async (id: string, status: AppointmentStatus) => {
@@ -91,11 +141,63 @@ export default function EmployeeDashboard() {
       await client.patch(`/appointments/${id}/status`, { status });
       setMessage(`Statut mis à jour : ${STATUS_LABELS[status]}`);
       setSelectedAppt(null);
-      await loadAppointments();
+      await loadDashboardData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Mise à jour impossible.');
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!createForm.locationId && visibleLocations.length === 1) {
+      setCreateForm((prev) => ({ ...prev, locationId: visibleLocations[0].id }));
+    }
+  }, [visibleLocations, createForm.locationId]);
+
+  useEffect(() => {
+    if (availableQuays.length === 1 && createForm.quayId !== availableQuays[0].id) {
+      setCreateForm((prev) => ({ ...prev, quayId: availableQuays[0].id }));
+      return;
+    }
+
+    if (createForm.quayId && !availableQuays.some((quay) => quay.id === createForm.quayId)) {
+      setCreateForm((prev) => ({ ...prev, quayId: '' }));
+    }
+  }, [availableQuays, createForm.quayId]);
+
+  const handleCreateAppointment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setCreating(true);
+    setError('');
+    setMessage('');
+
+    try {
+      await client.post('/appointments', {
+        supplierId: createForm.supplierId,
+        orderNumber: createForm.orderNumber.trim(),
+        volume: createForm.volume,
+        deliveryType: createForm.deliveryType,
+        locationId: createForm.locationId,
+        quayId: createForm.quayId,
+        scheduledDate: new Date(createForm.scheduledDate).toISOString(),
+      });
+
+      setMessage('Livraison non planifiee ajoutee avec succes.');
+      setCreateForm({
+        supplierId: '',
+        orderNumber: '',
+        volume: 1,
+        deliveryType: 'PALLET',
+        locationId: user?.locationId || visibleLocations[0]?.id || '',
+        quayId: '',
+        scheduledDate: new Date().toISOString().slice(0, 16),
+      });
+      await loadDashboardData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Creation de la livraison impossible.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -133,6 +235,94 @@ export default function EmployeeDashboard() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-6 space-y-4">
+
+        <section className="rounded-xl border border-slate-300 bg-white p-4 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Ajouter une livraison non planifiee</h2>
+            <p className="text-sm text-slate-500">Enregistrez manuellement un arrivage exceptionnel depuis l espace logistique.</p>
+          </div>
+
+          <form onSubmit={handleCreateAppointment} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <select
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              value={createForm.supplierId}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, supplierId: e.target.value }))}
+              required
+            >
+              <option value="">Selectionner un fournisseur</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+              ))}
+            </select>
+
+            <input
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Numero de commande"
+              value={createForm.orderNumber}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, orderNumber: e.target.value }))}
+              required
+            />
+
+            <input
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              type="number"
+              min={1}
+              value={createForm.volume}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, volume: Math.max(1, Number(e.target.value) || 1) }))}
+              required
+            />
+
+            <select
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              value={createForm.deliveryType}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, deliveryType: e.target.value as 'PALLET' | 'PARCEL' }))}
+            >
+              <option value="PALLET">Palettes</option>
+              <option value="PARCEL">Colis</option>
+            </select>
+
+            <select
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              value={createForm.locationId}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, locationId: e.target.value, quayId: '' }))}
+              required
+              disabled={Boolean(user?.locationId)}
+            >
+              <option value="">Selectionner un site</option>
+              {visibleLocations.map((location) => (
+                <option key={location.id} value={location.id}>{location.name}</option>
+              ))}
+            </select>
+
+            <select
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              value={createForm.quayId}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, quayId: e.target.value }))}
+              required
+            >
+              <option value="">Selectionner un quai</option>
+              {availableQuays.map((quay) => (
+                <option key={quay.id} value={quay.id}>{quay.name}</option>
+              ))}
+            </select>
+
+            <input
+              className="rounded border border-slate-300 px-3 py-2 text-sm xl:col-span-2"
+              type="datetime-local"
+              value={createForm.scheduledDate}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, scheduledDate: e.target.value }))}
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {creating ? 'Creation...' : 'Ajouter la livraison'}
+            </button>
+          </form>
+        </section>
 
         {/* Stats */}
         <div className="grid gap-3 sm:grid-cols-3">
@@ -180,7 +370,7 @@ export default function EmployeeDashboard() {
             </select>
           )}
 
-          <button onClick={loadAppointments} className="ml-auto rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+          <button onClick={loadDashboardData} className="ml-auto rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">
             ↻ Rafraîchir
           </button>
         </div>

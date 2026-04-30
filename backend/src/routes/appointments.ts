@@ -114,8 +114,8 @@ const getUsedVolumesByQuayAndDay = async (
   return { usedMap, countMap };
 };
 
-// Create appointment (supplier or admin)
-router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN'), async (req: Request, res: Response) => {
+// Create appointment (supplier, admin or employee)
+router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), async (req: Request, res: Response) => {
   try {
     const { orderNumber, volume, deliveryType, supplierId } = req.body;
     const requestedVolume = Number(volume);
@@ -131,6 +131,26 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN'), async (req: R
 
     if (!mappedLocationId && req.user?.role === 'SUPPLIER') {
       return res.status(400).json({ error: 'Aucun site ne correspond aux 5 premiers chiffres de ce numero de commande.' });
+    }
+
+    if ((req.user?.role === 'ADMIN' || req.user?.role === 'EMPLOYEE') && !supplierId) {
+      return res.status(400).json({ error: 'Le fournisseur est obligatoire.' });
+    }
+
+    if (req.user?.role === 'EMPLOYEE') {
+      const userAccess = await prisma.userQuayAccess.findMany({
+        where: { userId: req.user.id },
+        select: { quayId: true },
+      });
+
+      const assignedQuayIds = userAccess.map((access) => access.quayId);
+      if (assignedQuayIds.length > 0) {
+        if (!quayId || !assignedQuayIds.includes(quayId)) {
+          return res.status(403).json({ error: 'Vous ne pouvez creer une livraison que sur un quai qui vous est assigne.' });
+        }
+      } else if (req.user.locationId && locationId !== req.user.locationId) {
+        return res.status(403).json({ error: 'Vous ne pouvez creer une livraison que sur votre site.' });
+      }
     }
 
     if (quayId) {
@@ -206,7 +226,7 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN'), async (req: R
 
     const appointment = await prisma.appointment.create({
       data: {
-        supplierId: req.user!.role === 'ADMIN' ? supplierId : req.user!.id,
+        supplierId: req.user!.role === 'SUPPLIER' ? req.user!.id : supplierId,
         orderNumber,
         volume: requestedVolume,
         deliveryType,

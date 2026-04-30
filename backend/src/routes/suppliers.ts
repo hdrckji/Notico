@@ -4,8 +4,8 @@ import { prisma } from '../config/database';
 
 const router = Router();
 
-// Get all suppliers (admin only)
-router.get('/', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+// Get all suppliers (admin and employees)
+router.get('/', authMiddleware, requireRole('ADMIN', 'EMPLOYEE'), async (req: Request, res: Response) => {
   try {
     const suppliers = await prisma.supplier.findMany({
       select: {
