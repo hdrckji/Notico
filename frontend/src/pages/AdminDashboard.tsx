@@ -698,7 +698,7 @@ export default function AdminDashboard() {
                         className="rounded border p-2"
                         placeholder="Prefixe commande (5 chiffres)"
                         required
-                        pattern="\\d{5}"
+                        pattern="[0-9]{5}"
                         value={editingLocation.orderPrefix || ''}
                         onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, orderPrefix: e.target.value }))}
                       />
@@ -721,7 +721,7 @@ export default function AdminDashboard() {
                   className="rounded border p-2"
                   placeholder="Prefixe commande (5 chiffres)"
                   required
-                  pattern="\\d{5}"
+                  pattern="[0-9]{5}"
                   value={locationForm.orderPrefix}
                   onChange={(e) => setLocationForm((prev) => ({ ...prev, orderPrefix: e.target.value }))}
                 />
