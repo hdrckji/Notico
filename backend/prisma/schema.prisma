@@ -37,6 +37,7 @@ model Supplier {
   name              String
   email             String   @unique
   password          String?
+  maxDailyVolume    Int      @default(0)
   phone             String
   address           String
   postalCode        String
