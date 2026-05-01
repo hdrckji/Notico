@@ -42,6 +42,7 @@ interface Supplier {
   id: string;
   name: string;
   email: string;
+  isGold?: boolean;
   phone: string;
   address: string;
   postalCode: string;
@@ -154,6 +155,7 @@ export default function AdminDashboard() {
     name: '',
     email: '',
     password: '',
+    isGold: false,
     phone: '',
     address: '',
     postalCode: '',
@@ -299,6 +301,7 @@ export default function AdminDashboard() {
         name: '',
         email: '',
         password: '',
+        isGold: false,
         phone: '',
         address: '',
         postalCode: '',
@@ -645,6 +648,14 @@ export default function AdminDashboard() {
                     <input className="rounded border p-2 text-sm" placeholder="Nom" required value={supplierForm.name} onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))} />
                     <input className="rounded border p-2 text-sm" placeholder="Identifiant / Email" required type="text" value={supplierForm.email} onChange={(e) => setSupplierForm((prev) => ({ ...prev, email: e.target.value }))} />
                     <input className="rounded border p-2 text-sm" placeholder="Mot de passe" required minLength={6} type="password" value={supplierForm.password} onChange={(e) => setSupplierForm((prev) => ({ ...prev, password: e.target.value }))} />
+                    <label className="flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      <input
+                        type="checkbox"
+                        checked={supplierForm.isGold}
+                        onChange={(e) => setSupplierForm((prev) => ({ ...prev, isGold: e.target.checked }))}
+                      />
+                      Accès Gold (ignore la capacité de réception)
+                    </label>
                     <input className="rounded border p-2 text-sm" placeholder="Telephone" required value={supplierForm.phone} onChange={(e) => setSupplierForm((prev) => ({ ...prev, phone: e.target.value }))} />
                     <input className="rounded border p-2 text-sm" placeholder="Contact" value={supplierForm.contact} onChange={(e) => setSupplierForm((prev) => ({ ...prev, contact: e.target.value }))} />
                     <input className="rounded border p-2 text-sm" placeholder="Adresse" value={supplierForm.address} onChange={(e) => setSupplierForm((prev) => ({ ...prev, address: e.target.value }))} />
@@ -683,7 +694,14 @@ export default function AdminDashboard() {
                           }`}
                           onClick={() => openSupplierPanel(supplier)}
                         >
-                          <p className="font-semibold truncate">{supplier.name}</p>
+                          <p className="font-semibold truncate">
+                            {supplier.name}
+                            {supplier.isGold && (
+                              <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${editingSupplier?.id === supplier.id ? 'bg-amber-300 text-amber-900' : 'bg-amber-100 text-amber-800'}`}>
+                                GOLD
+                              </span>
+                            )}
+                          </p>
                           <p className={`truncate text-xs ${editingSupplier?.id === supplier.id ? 'text-slate-300' : 'text-slate-500'}`}>
                             {supplier.email}{supplier.city ? ` · ${supplier.city}` : ''}
                           </p>
@@ -698,7 +716,10 @@ export default function AdminDashboard() {
                 <div className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="mb-5 flex items-start justify-between">
                     <div>
-                      <h2 className="text-2xl font-bold">{editingSupplier.name}</h2>
+                      <h2 className="text-2xl font-bold">
+                        {editingSupplier.name}
+                        {editingSupplier.isGold && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">GOLD</span>}
+                      </h2>
                       <p className="text-sm text-slate-500">{editingSupplier.email}</p>
                     </div>
                     <div className="flex gap-2">
@@ -733,6 +754,16 @@ export default function AdminDashboard() {
                         <div>
                           <label className="mb-1 block text-xs font-semibold text-slate-500">Nouveau mot de passe</label>
                           <input className="w-full rounded border p-2" placeholder="(optionnel)" type="password" minLength={6} value={editingSupplier.password || ''} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, password: e.target.value }))} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(editingSupplier.isGold)}
+                              onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, isGold: e.target.checked }))}
+                            />
+                            Accès Gold (ce fournisseur peut réserver même si la capacité est atteinte)
+                          </label>
                         </div>
                         <div>
                           <label className="mb-1 block text-xs font-semibold text-slate-500">Téléphone</label>

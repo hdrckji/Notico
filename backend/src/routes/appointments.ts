@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { prisma } from '../config/database';
 import { sendRescheduleRequest } from '../config/email';
+import { isSupplierGoldAccess } from '../services/supplierGoldAccess';
 
 const router = Router();
 
@@ -181,6 +182,9 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
     const mappedLocationId = orderNumber ? await resolveLocationIdByOrderNumber(String(orderNumber)) : null;
     const locationId = req.user?.role === 'SUPPLIER' ? mappedLocationId : (mappedLocationId || providedLocationId);
     let quayId: string | null = req.body.quayId || null;
+    const supplierIsGold = req.user?.role === 'SUPPLIER'
+      ? await isSupplierGoldAccess(req.user.id)
+      : false;
 
     if (!orderNumber || !locationId || !parsedDate || Number.isNaN(parsedDate.getTime()) || requestedVolume <= 0 || !['PARCEL', 'PALLET'].includes(deliveryType)) {
       return res.status(400).json({ error: 'Invalid appointment payload' });
@@ -239,7 +243,7 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
         : quay.capacity?.maxPalletsPerDay ?? DEFAULT_DAILY_CAPACITY;
 
       const usedVolume = used._sum.volume ?? 0;
-      if (usedVolume + requestedVolume > dailyCapacity) {
+      if (!supplierIsGold && usedVolume + requestedVolume > dailyCapacity) {
         return res.status(409).json({ error: 'Selected quay has no remaining capacity for that day' });
       }
     } else if (req.user?.role === 'SUPPLIER') {
@@ -271,7 +275,7 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
             remaining: capacity - used,
           };
         })
-        .filter((q) => q.remaining >= requestedVolume)
+        .filter((q) => supplierIsGold || q.remaining >= requestedVolume)
         .sort((a, b) => b.remaining - a.remaining)[0];
 
       if (!selected) {
@@ -325,6 +329,9 @@ router.get('/available-slots', authMiddleware, requireRole('SUPPLIER', 'ADMIN'),
     const locationId = mappedLocationId || requestedLocationId;
     const deliveryType = String(req.query.deliveryType || '').toUpperCase() as 'PARCEL' | 'PALLET';
     const volume = Number(req.query.volume || 0);
+    const supplierIsGold = req.user?.role === 'SUPPLIER'
+      ? await isSupplierGoldAccess(req.user.id)
+      : false;
 
     if (!locationId || !['PARCEL', 'PALLET'].includes(deliveryType) || !Number.isFinite(volume) || volume <= 0) {
       return res.status(400).json({ error: 'orderNumber ou locationId, deliveryType et volume sont requis' });
@@ -383,7 +390,7 @@ router.get('/available-slots', authMiddleware, requireRole('SUPPLIER', 'ADMIN'),
         const used = usedMap.get(`${quay.id}|${dayKey}|${deliveryType}`) || 0;
         const remaining = dailyCapacity - used;
 
-        if (remaining >= volume) {
+        if (remaining >= volume || supplierIsGold) {
           const dayCount = countMap.get(`${quay.id}|${dayKey}`) || 0;
           const slotDate = new Date(day);
           slotDate.setHours(8 + Math.min(dayCount, 8), 0, 0, 0);

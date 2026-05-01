@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { prisma } from '../config/database';
+import { isSupplierGoldAccess, setSupplierGoldAccess } from '../services/supplierGoldAccess';
 
 const router = Router();
 
@@ -73,6 +74,7 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
 
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const isGold = Boolean(req.body.isGold);
 
     const supplier = await prisma.supplier.create({
       data: {
@@ -97,7 +99,9 @@ router.post('/suppliers', authMiddleware, requireRole('ADMIN'), [
       },
     });
 
-    res.status(201).json(supplier);
+    await setSupplierGoldAccess(supplier.id, isGold);
+
+    res.status(201).json({ ...supplier, isGold });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create supplier' });
   }
@@ -122,6 +126,7 @@ router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: R
     if (req.body.password && req.body.password.length >= 6) {
       data.password = await bcrypt.hash(req.body.password, 10);
     }
+    const isGold = Boolean(req.body.isGold);
 
     const supplier = await prisma.supplier.update({
       where: { id: req.params.id },
@@ -137,7 +142,8 @@ router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: R
         contact: true,
       },
     });
-    res.json(supplier);
+    await setSupplierGoldAccess(supplier.id, isGold);
+    res.json({ ...supplier, isGold });
   } catch (error: any) {
     const isMissingPasswordColumn =
       error instanceof Prisma.PrismaClientKnownRequestError
@@ -162,6 +168,8 @@ router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: R
           retryData.password = await bcrypt.hash(req.body.password, 10);
         }
 
+        const isGold = Boolean(req.body.isGold);
+
         const supplier = await prisma.supplier.update({
           where: { id: req.params.id },
           data: retryData,
@@ -177,7 +185,9 @@ router.put('/suppliers/:id', authMiddleware, requireRole('ADMIN'), async (req: R
           },
         });
 
-        return res.json(supplier);
+        await setSupplierGoldAccess(supplier.id, isGold);
+
+        return res.json({ ...supplier, isGold });
       } catch (retryError) {
         console.error('Supplier update retry failed:', retryError);
         return res.status(500).json({ error: 'Failed to update supplier' });

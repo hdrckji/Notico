@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { prisma } from '../config/database';
+import { getSupplierGoldAccessMap, isSupplierGoldAccess } from '../services/supplierGoldAccess';
 
 const router = Router();
 
@@ -20,7 +21,8 @@ router.get('/', authMiddleware, requireRole('ADMIN', 'EMPLOYEE'), async (req: Re
         assignedQuays: { include: { quay: true } },
       },
     });
-    res.json(suppliers);
+    const goldMap = await getSupplierGoldAccessMap(suppliers.map((s) => s.id));
+    res.json(suppliers.map((supplier) => ({ ...supplier, isGold: Boolean(goldMap[supplier.id]) })));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch suppliers' });
   }
@@ -53,7 +55,8 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Supplier not found' });
     }
 
-    res.json(supplier);
+    const isGold = await isSupplierGoldAccess(supplier.id);
+    res.json({ ...supplier, isGold });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch supplier' });
   }
