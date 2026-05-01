@@ -208,8 +208,8 @@ export default function EmployeeDashboard() {
   };
 
   const openDeliveredValidation = (appt: Appointment) => {
-    const defaultReceived = appt.palletsReceived ?? (appt.deliveryType === 'PALLET' ? appt.volume : 0);
-    const defaultReturned = appt.palletsReturned ?? defaultReceived;
+    const defaultReceived = appt.palletsReceived ?? 0;
+    const defaultReturned = appt.palletsReturned ?? 0;
     setDeliveryValidation({
       deliveryNoteNumber: appt.deliveryNoteNumber || '',
       palletsReceived: defaultReceived,
