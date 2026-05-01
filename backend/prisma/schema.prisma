@@ -61,6 +61,7 @@ model InternalUser {
   location          DeliveryLocation? @relation(fields: [locationId], references: [id])
   locationId        String?
   assignedQuays     UserQuayAccess[]
+  statusChanges     AppointmentStatusHistory[] @relation("StatusChangedByUser")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -157,6 +158,7 @@ model Appointment {
   quayId            String?
   quay              Quay? @relation(fields: [quayId], references: [id])
   createdByRole     UserRole @default(SUPPLIER)
+  statusHistory     AppointmentStatusHistory[]
   status            AppointmentStatus @default(SCHEDULED)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -165,4 +167,19 @@ model Appointment {
   @@index([scheduledDate])
   @@index([locationId])
   @@map("appointments")
+}
+
+model AppointmentStatusHistory {
+  id              String            @id @default(cuid())
+  appointmentId   String
+  appointment     Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  fromStatus      AppointmentStatus?
+  toStatus        AppointmentStatus
+  changedByRole   UserRole
+  changedByUserId String?
+  changedByUser   InternalUser?     @relation("StatusChangedByUser", fields: [changedByUserId], references: [id], onDelete: SetNull)
+  changedAt       DateTime          @default(now())
+
+  @@index([appointmentId, changedAt])
+  @@map("appointment_status_history")
 }

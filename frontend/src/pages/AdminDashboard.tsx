@@ -14,6 +14,18 @@ interface Appointment {
   status: AppointmentStatus;
   supplierId: string;
   locationId: string | null;
+  statusHistory?: Array<{
+    id: string;
+    fromStatus: AppointmentStatus | null;
+    toStatus: AppointmentStatus;
+    changedByRole: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER';
+    changedAt: string;
+    changedByUser?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+    } | null;
+  }>;
   supplier?: { name: string };
   location?: { name: string };
 }
@@ -60,6 +72,27 @@ interface Location {
   orderPrefix?: string | null;
   quays: Quay[];
 }
+
+const formatAppointmentAuditActor = (
+  appt: Appointment,
+  role: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER',
+  changedByUser?: { firstName?: string; lastName?: string; email?: string } | null
+) => {
+  if (changedByUser) {
+    const fullName = [changedByUser.firstName, changedByUser.lastName].filter(Boolean).join(' ').trim();
+    return fullName || changedByUser.email || role;
+  }
+
+  if (role === 'SUPPLIER') {
+    return appt.supplier?.name || 'Fournisseur';
+  }
+
+  if (role === 'EMPLOYEE') {
+    return 'Logistique';
+  }
+
+  return 'Admin';
+};
 
 export default function AdminDashboard() {
   const { logout, user } = useAuthStore();
@@ -897,6 +930,22 @@ export default function AdminDashboard() {
                         <button type="button" onClick={() => setEditingAppointment(null)} className="rounded border px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
                       </div>
                     </form>
+                    {editingAppointment.statusHistory && editingAppointment.statusHistory.length > 0 && (
+                      <div className="mt-4 border-t border-slate-200 pt-3">
+                        <p className="mb-2 text-sm font-semibold text-slate-700">Historique des statuts</p>
+                        <div className="max-h-36 space-y-1 overflow-auto rounded border border-slate-200 bg-slate-50 p-2">
+                          {editingAppointment.statusHistory.map((entry) => (
+                            <p key={entry.id} className="text-xs text-slate-600">
+                              {new Date(entry.changedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                              {' · '}
+                              {entry.fromStatus ? `${entry.fromStatus} -> ` : ''}{entry.toStatus}
+                              {' · par '}
+                              {formatAppointmentAuditActor(editingAppointment, entry.changedByRole, entry.changedByUser)}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -938,6 +987,13 @@ export default function AdminDashboard() {
                           {' · '}{new Date(appt.scheduledDate).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
                           {appt.location ? ` · ${appt.location.name}` : ''}
                         </p>
+                        {appt.statusHistory && appt.statusHistory.length > 0 && (
+                          <p className="text-xs text-slate-400">
+                            Derniere maj statut: {new Date(appt.statusHistory[0].changedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                            {' · par '}
+                            {formatAppointmentAuditActor(appt, appt.statusHistory[0].changedByRole, appt.statusHistory[0].changedByUser)}
+                          </p>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setEditingAppointment(appt)} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>

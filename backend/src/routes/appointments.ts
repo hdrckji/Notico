@@ -21,6 +21,52 @@ type QuayWithCapacity = {
   } | null;
 };
 
+const APPOINTMENT_STATUS_VALUES = ['SCHEDULED', 'DELIVERED', 'RESCHEDULED', 'NO_SHOW', 'CANCELLED'] as const;
+type AppointmentStatusValue = (typeof APPOINTMENT_STATUS_VALUES)[number];
+
+const appointmentWithHistoryInclude = {
+  location: true,
+  supplier: true,
+  quay: true,
+  statusHistory: {
+    orderBy: { changedAt: 'desc' as const },
+    include: {
+      changedByUser: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  },
+};
+
+const isAppointmentStatus = (value: string): value is AppointmentStatusValue => {
+  return APPOINTMENT_STATUS_VALUES.includes(value as AppointmentStatusValue);
+};
+
+const auditStatusChange = async (
+  tx: any,
+  appointmentId: string,
+  fromStatus: AppointmentStatusValue | null,
+  toStatus: AppointmentStatusValue,
+  changedByRole: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER',
+  changedByUserId?: string | null
+) => {
+  await tx.appointmentStatusHistory.create({
+    data: {
+      appointmentId,
+      fromStatus,
+      toStatus,
+      changedByRole,
+      changedByUserId: changedByRole === 'SUPPLIER' ? null : (changedByUserId || null),
+    },
+  });
+};
+
 const ensureLocationOrderPrefixRulesTable = async () => {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "location_order_prefix_rules" (
@@ -224,18 +270,33 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
       quayId = selected.quayId;
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        supplierId: req.user!.role === 'SUPPLIER' ? req.user!.id : supplierId,
-        orderNumber,
-        volume: requestedVolume,
-        deliveryType,
-        scheduledDate: parsedDate,
-        locationId,
-        quayId,
-        createdByRole: req.user!.role,
-      },
-      include: { location: true, supplier: true, quay: true },
+    const appointment = await prisma.$transaction(async (tx) => {
+      const created = await tx.appointment.create({
+        data: {
+          supplierId: req.user!.role === 'SUPPLIER' ? req.user!.id : supplierId,
+          orderNumber,
+          volume: requestedVolume,
+          deliveryType,
+          scheduledDate: parsedDate,
+          locationId,
+          quayId,
+          createdByRole: req.user!.role,
+        },
+      });
+
+      await auditStatusChange(
+        tx,
+        created.id,
+        null,
+        'SCHEDULED',
+        req.user!.role,
+        req.user!.id
+      );
+
+      return tx.appointment.findUnique({
+        where: { id: created.id },
+        include: appointmentWithHistoryInclude,
+      });
     });
 
     res.status(201).json(appointment);
@@ -345,7 +406,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     if (req.user?.role === 'SUPPLIER') {
       appointments = await prisma.appointment.findMany({
         where: { supplierId: req.user.id },
-        include: { location: true, quay: true },
+        include: appointmentWithHistoryInclude,
         orderBy: { scheduledDate: 'desc' },
       });
     } else if (req.user?.role === 'EMPLOYEE') {
@@ -362,12 +423,12 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       }
       appointments = await prisma.appointment.findMany({
         where,
-        include: { supplier: true, location: true, quay: true },
+        include: appointmentWithHistoryInclude,
         orderBy: { scheduledDate: 'desc' },
       });
     } else {
       appointments = await prisma.appointment.findMany({
-        include: { supplier: true, location: true, quay: true },
+        include: appointmentWithHistoryInclude,
         orderBy: { scheduledDate: 'desc' },
       });
     }
@@ -381,16 +442,45 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 // Update appointment status (employee/admin)
 router.patch('/:id/status', authMiddleware, requireRole('EMPLOYEE', 'ADMIN'), async (req: Request, res: Response) => {
   try {
-    const { status } = req.body;
+    const requestedStatus = String(req.body.status || '').toUpperCase();
+    if (!isAppointmentStatus(requestedStatus)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
 
-    const appointment = await prisma.appointment.update({
-      where: { id: req.params.id },
-      data: { status },
-      include: { supplier: true },
+    const appointment = await prisma.$transaction(async (tx) => {
+      const current = await tx.appointment.findUnique({ where: { id: req.params.id } });
+      if (!current) {
+        return null;
+      }
+
+      const updated = await tx.appointment.update({
+        where: { id: req.params.id },
+        data: { status: requestedStatus },
+      });
+
+      if (current.status !== requestedStatus) {
+        await auditStatusChange(
+          tx,
+          updated.id,
+          current.status as AppointmentStatusValue,
+          requestedStatus,
+          req.user!.role,
+          req.user!.id
+        );
+      }
+
+      return tx.appointment.findUnique({
+        where: { id: updated.id },
+        include: appointmentWithHistoryInclude,
+      });
     });
 
+    if (!appointment) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
     // Send email if marked as NO_SHOW
-    if (status === 'NO_SHOW') {
+    if (requestedStatus === 'NO_SHOW') {
       await sendRescheduleRequest(
         appointment.supplier.email,
         appointment.supplier.name,
@@ -419,9 +509,27 @@ router.patch('/:id/reschedule', authMiddleware, async (req: Request, res: Respon
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const updated = await prisma.appointment.update({
-      where: { id: req.params.id },
-      data: { scheduledDate: new Date(scheduledDate), status: 'RESCHEDULED' },
+    const updated = await prisma.$transaction(async (tx) => {
+      const next = await tx.appointment.update({
+        where: { id: req.params.id },
+        data: { scheduledDate: new Date(scheduledDate), status: 'RESCHEDULED' },
+      });
+
+      if (appointment.status !== 'RESCHEDULED') {
+        await auditStatusChange(
+          tx,
+          next.id,
+          appointment.status as AppointmentStatusValue,
+          'RESCHEDULED',
+          req.user!.role,
+          req.user!.id
+        );
+      }
+
+      return tx.appointment.findUnique({
+        where: { id: next.id },
+        include: appointmentWithHistoryInclude,
+      });
     });
 
     res.json(updated);
@@ -434,19 +542,51 @@ router.patch('/:id/reschedule', authMiddleware, async (req: Request, res: Respon
 router.put('/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
   try {
     const { orderNumber, volume, deliveryType, scheduledDate, locationId, supplierId, status } = req.body;
-    const updated = await prisma.appointment.update({
-      where: { id: req.params.id },
-      data: {
-        orderNumber,
-        volume: Number(volume),
-        deliveryType,
-        scheduledDate: new Date(scheduledDate),
-        locationId,
-        supplierId,
-        status,
-      },
-      include: { supplier: true, location: true, quay: true },
+    const requestedStatus = String(status || '').toUpperCase();
+    if (!isAppointmentStatus(requestedStatus)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const current = await tx.appointment.findUnique({ where: { id: req.params.id } });
+      if (!current) {
+        return null;
+      }
+
+      const next = await tx.appointment.update({
+        where: { id: req.params.id },
+        data: {
+          orderNumber,
+          volume: Number(volume),
+          deliveryType,
+          scheduledDate: new Date(scheduledDate),
+          locationId,
+          supplierId,
+          status: requestedStatus,
+        },
+      });
+
+      if (current.status !== requestedStatus) {
+        await auditStatusChange(
+          tx,
+          next.id,
+          current.status as AppointmentStatusValue,
+          requestedStatus,
+          req.user!.role,
+          req.user!.id
+        );
+      }
+
+      return tx.appointment.findUnique({
+        where: { id: next.id },
+        include: appointmentWithHistoryInclude,
+      });
     });
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update appointment' });

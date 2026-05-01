@@ -13,6 +13,18 @@ interface Appointment {
   scheduledDate: string;
   status: AppointmentStatus;
   createdByRole?: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER';
+  statusHistory?: Array<{
+    id: string;
+    fromStatus: AppointmentStatus | null;
+    toStatus: AppointmentStatus;
+    changedByRole: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER';
+    changedAt: string;
+    changedByUser?: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+    } | null;
+  }>;
   supplier?: { name: string; phone: string };
   location?: { name: string };
   quay?: { name: string };
@@ -53,6 +65,23 @@ const STATUS_COLORS: Record<AppointmentStatus, string> = {
 const EMPLOYEE_CREATED_CLASSES = 'bg-amber-100 text-amber-900 border-amber-400';
 
 const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+const formatAuditActor = (appt: Appointment, role: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER', changedByUser?: { firstName?: string; lastName?: string; email?: string } | null) => {
+  if (changedByUser) {
+    const fullName = [changedByUser.firstName, changedByUser.lastName].filter(Boolean).join(' ').trim();
+    return fullName || changedByUser.email || role;
+  }
+
+  if (role === 'SUPPLIER') {
+    return appt.supplier?.name || 'Fournisseur';
+  }
+
+  if (role === 'EMPLOYEE') {
+    return 'Logistique';
+  }
+
+  return 'Admin';
+};
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
@@ -458,6 +487,22 @@ export default function EmployeeDashboard() {
                   <span className="font-semibold">Origine :</span>{' '}
                   <span className="rounded-full px-2 py-0.5 text-xs font-bold border bg-amber-100 text-amber-900 border-amber-400">Encodé par la logistique</span>
                 </p>
+              )}
+              {selectedAppt.statusHistory && selectedAppt.statusHistory.length > 0 && (
+                <div className="pt-2">
+                  <p className="font-semibold mb-1">Historique des statuts :</p>
+                  <div className="space-y-1 rounded border border-slate-200 bg-slate-50 p-2">
+                    {selectedAppt.statusHistory.slice(0, 5).map((entry) => (
+                      <p key={entry.id} className="text-xs text-slate-600">
+                        {new Date(entry.changedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                        {' · '}
+                        {entry.fromStatus ? `${STATUS_LABELS[entry.fromStatus]} -> ` : ''}{STATUS_LABELS[entry.toStatus]}
+                        {' · par '}
+                        {formatAuditActor(selectedAppt, entry.changedByRole, entry.changedByUser)}
+                      </p>
+                    ))}
+                  </div>
+                </div>
               )}
               <p>
                 <span className="font-semibold">Statut :</span>{' '}
