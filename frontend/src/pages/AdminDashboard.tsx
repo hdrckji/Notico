@@ -498,7 +498,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-200 text-slate-900">
       <header className="border-b border-slate-300 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
+        <div className="flex items-center justify-between px-6 py-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight">Console Admin</h1>
             <p className="text-sm text-slate-600">Bienvenue {user?.firstName || 'Admin'}, gérez votre opération Notico.</p>
@@ -512,7 +512,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-4 px-4 py-6 md:grid-cols-[240px,1fr]">
+      <div className="grid gap-4 px-6 py-6 md:grid-cols-[240px,1fr]">
         <aside className="rounded-xl border border-slate-300 bg-white p-3 shadow-sm">
           {[
             { id: 'overview', label: 'Vue generale' },
