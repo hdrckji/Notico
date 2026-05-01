@@ -49,14 +49,6 @@ interface LocationOption {
   quays: QuayOption[];
 }
 
-interface PalletBalanceRow {
-  supplierId: string;
-  supplierName: string;
-  palletsReceived: number;
-  palletsReturned: number;
-  balance: number;
-}
-
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   SCHEDULED: 'Planifié',
   DELIVERED: 'Livré',
@@ -127,7 +119,6 @@ export default function EmployeeDashboard() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
-  const [palletBalances, setPalletBalances] = useState<PalletBalanceRow[]>([]);
   const [deliveryValidation, setDeliveryValidation] = useState({
     deliveryNoteNumber: '',
     palletsReceived: 0,
@@ -159,11 +150,10 @@ export default function EmployeeDashboard() {
     setLoading(true);
     setError('');
     try {
-      const [appointmentsResponse, suppliersResponse, locationsResponse, balancesResponse] = await Promise.all([
+      const [appointmentsResponse, suppliersResponse, locationsResponse] = await Promise.all([
         client.get('/appointments'),
         client.get('/suppliers'),
         client.get('/locations'),
-        client.get('/appointments/pallet-balances'),
       ]);
       setAppointments(appointmentsResponse.data || []);
       setSuppliers((suppliersResponse.data || []).map((supplier: any) => ({ id: supplier.id, name: supplier.name })));
@@ -172,7 +162,6 @@ export default function EmployeeDashboard() {
         name: location.name,
         quays: (location.quays || []).map((quay: any) => ({ id: quay.id, name: quay.name })),
       })));
-      setPalletBalances(balancesResponse.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Impossible de charger les rendez-vous.');
     } finally {
@@ -417,43 +406,6 @@ export default function EmployeeDashboard() {
             <p className="mt-1 text-3xl font-black">{deliveredCount}</p>
           </div>
         </div>
-
-        <section className="rounded-xl border border-slate-300 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">Suivi palettes fournisseurs</h2>
-            <span className="text-xs text-slate-500">Solde = reçues - rendues</span>
-          </div>
-          {palletBalances.length === 0 ? (
-            <p className="text-sm text-slate-500">Aucune donnée palette disponible pour le moment.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-2 py-2">Fournisseur</th>
-                    <th className="px-2 py-2">Reçues</th>
-                    <th className="px-2 py-2">Rendues</th>
-                    <th className="px-2 py-2">Solde</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {palletBalances.map((row) => (
-                    <tr key={row.supplierId} className="border-b border-slate-100">
-                      <td className="px-2 py-2 font-semibold text-slate-800">{row.supplierName}</td>
-                      <td className="px-2 py-2 text-slate-600">{row.palletsReceived}</td>
-                      <td className="px-2 py-2 text-slate-600">{row.palletsReturned}</td>
-                      <td className="px-2 py-2">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${row.balance > 0 ? 'bg-amber-100 text-amber-800' : row.balance < 0 ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                          {row.balance > 0 ? `Nous devons ${row.balance}` : row.balance < 0 ? `${Math.abs(row.balance)} rendu(es) en trop` : 'Equilibré'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
 
         {message && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
         {error && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}

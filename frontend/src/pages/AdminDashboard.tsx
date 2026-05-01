@@ -51,6 +51,14 @@ interface SupplierAssignment {
   };
 }
 
+interface PalletBalanceRow {
+  supplierId: string;
+  supplierName: string;
+  palletsReceived: number;
+  palletsReturned: number;
+  balance: number;
+}
+
 interface QuayCapacity {
   maxParcelsPerDay: number;
   maxPalletsPerDay: number;
@@ -114,6 +122,7 @@ export default function AdminDashboard() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [supplierAssignments, setSupplierAssignments] = useState<SupplierAssignment[]>([]);  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [palletBalances, setPalletBalances] = useState<PalletBalanceRow[]>([]);
   const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [editingSupplier, setEditingSupplier] = useState<(Supplier & { password?: string }) | null>(null);
@@ -180,23 +189,29 @@ export default function AdminDashboard() {
     () => allQuays.filter((quay) => !assignmentForm.locationId || quay.locationId === assignmentForm.locationId),
     [allQuays, assignmentForm.locationId]
   );
+  const selectedSupplierBalance = useMemo(
+    () => (editingSupplier ? palletBalances.find((row) => row.supplierId === editingSupplier.id) : null),
+    [editingSupplier, palletBalances]
+  );
 
   const loadData = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const [suppliersResponse, locationsResponse, usersResponse, appointmentsResponse] = await Promise.all([
+      const [suppliersResponse, locationsResponse, usersResponse, appointmentsResponse, balancesResponse] = await Promise.all([
         client.get('/suppliers'),
         client.get('/locations'),
         client.get('/admin/users'),
         client.get('/appointments'),
+        client.get('/appointments/pallet-balances'),
       ]);
 
       setSuppliers(suppliersResponse.data || []);
       setLocations(locationsResponse.data || []);
       setInternalUsers(usersResponse.data || []);
       setAppointments(appointmentsResponse.data || []);
+      setPalletBalances(balancesResponse.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Impossible de charger les donnees admin.');
     } finally {
@@ -736,6 +751,30 @@ export default function AdminDashboard() {
                           ))}
                         </div>
                       )}
+
+                      <div className="mt-4 rounded-lg border border-slate-200 p-3">
+                        <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Suivi palettes</h4>
+                        <div className="space-y-1 text-sm text-slate-700">
+                          <p>Reçues: <span className="font-semibold">{selectedSupplierBalance?.palletsReceived || 0}</span></p>
+                          <p>Rendues: <span className="font-semibold">{selectedSupplierBalance?.palletsReturned || 0}</span></p>
+                          <p>
+                            Solde:{' '}
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                              (selectedSupplierBalance?.balance || 0) > 0
+                                ? 'bg-amber-100 text-amber-800'
+                                : (selectedSupplierBalance?.balance || 0) < 0
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {(selectedSupplierBalance?.balance || 0) > 0
+                                ? `Nous devons ${selectedSupplierBalance?.balance}`
+                                : (selectedSupplierBalance?.balance || 0) < 0
+                                  ? `${Math.abs(selectedSupplierBalance?.balance || 0)} rendu(es) en trop`
+                                  : 'Equilibré'}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
