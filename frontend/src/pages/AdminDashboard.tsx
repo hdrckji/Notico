@@ -263,7 +263,6 @@ export default function AdminDashboard() {
       setPalletBalances(balancesResponse.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Impossible de charger les donnees admin.');
-            { id: 'reliability', label: 'Fiabilité fournisseurs' },
     } finally {
       setLoading(false);
     }
