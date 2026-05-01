@@ -41,6 +41,16 @@ interface Supplier {
   contact: string;
 }
 
+interface SupplierAssignment {
+  id: string;
+  quayId: string;
+  quay: {
+    id: string;
+    name: string;
+    location: { id: string; name: string };
+  };
+}
+
 interface QuayCapacity {
   maxParcelsPerDay: number;
   maxPalletsPerDay: number;
@@ -103,6 +113,7 @@ export default function AdminDashboard() {
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierAssignments, setSupplierAssignments] = useState<SupplierAssignment[]>([]);  const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [editingSupplier, setEditingSupplier] = useState<(Supplier & { password?: string }) | null>(null);
@@ -262,6 +273,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadSupplierAssignments = async (supplierId: string) => {
+    setLoadingAssignments(true);
+    try {
+      const res = await client.get(`/admin/suppliers/${supplierId}/assignments`);
+      setSupplierAssignments(res.data || []);
+    } catch {
+      setSupplierAssignments([]);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const openSupplierPanel = (supplier: Supplier) => {
+    setEditingSupplier({ ...supplier, password: '' });
+    loadSupplierAssignments(supplier.id);
+  };
+
   const handleUpdateSupplier = async (event: FormEvent) => {
     event.preventDefault();
     if (!editingSupplier) return;
@@ -269,8 +297,10 @@ export default function AdminDashboard() {
     try {
       await client.put(`/admin/suppliers/${editingSupplier.id}`, editingSupplier);
       setMessage('Fournisseur mis a jour.');
-      setEditingSupplier(null);
       await loadData();
+      // keep panel open with fresh data
+      const refreshed = (await client.get('/suppliers')).data?.find((s: Supplier) => s.id === editingSupplier.id);
+      if (refreshed) setEditingSupplier({ ...refreshed, password: '' });
     } catch (err: any) {
       setError(err.response?.data?.error || 'Mise a jour impossible.');
     }
@@ -282,7 +312,21 @@ export default function AdminDashboard() {
     try {
       await client.delete(`/admin/suppliers/${id}`);
       setMessage('Fournisseur supprime.');
+      setEditingSupplier(null);
+      setSupplierAssignments([]);
       await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Suppression impossible.');
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId: string) => {
+    if (!window.confirm('Retirer ce quai du fournisseur ?')) return;
+    resetNotices();
+    try {
+      await client.delete(`/admin/quay-assignments/${assignmentId}`);
+      setMessage('Affectation supprimee.');
+      if (editingSupplier) loadSupplierAssignments(editingSupplier.id);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Suppression impossible.');
     }
@@ -527,82 +571,179 @@ export default function AdminDashboard() {
           )}
 
           {activeSection === 'suppliers' && (
-            <div className="space-y-6">
-              {/* Modal édition fournisseur */}
-              {editingSupplier && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditingSupplier(null)}>
-                  <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-lg">Modifier {editingSupplier.name}</h3>
-                      <button onClick={() => setEditingSupplier(null)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">×</button>
+            <div className="flex gap-6" style={{ minHeight: '70vh' }}>
+              {/* Colonne gauche : liste + création */}
+              <div className="flex w-80 shrink-0 flex-col gap-4">
+                {/* Créer un fournisseur */}
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Nouveau fournisseur</h2>
+                  <form onSubmit={handleCreateSupplier} className="flex flex-col gap-2">
+                    <input className="rounded border p-2 text-sm" placeholder="Nom" required value={supplierForm.name} onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))} />
+                    <input className="rounded border p-2 text-sm" placeholder="Identifiant / Email" required type="text" value={supplierForm.email} onChange={(e) => setSupplierForm((prev) => ({ ...prev, email: e.target.value }))} />
+                    <input className="rounded border p-2 text-sm" placeholder="Mot de passe" required minLength={6} type="password" value={supplierForm.password} onChange={(e) => setSupplierForm((prev) => ({ ...prev, password: e.target.value }))} />
+                    <input className="rounded border p-2 text-sm" placeholder="Telephone" required value={supplierForm.phone} onChange={(e) => setSupplierForm((prev) => ({ ...prev, phone: e.target.value }))} />
+                    <input className="rounded border p-2 text-sm" placeholder="Contact" value={supplierForm.contact} onChange={(e) => setSupplierForm((prev) => ({ ...prev, contact: e.target.value }))} />
+                    <input className="rounded border p-2 text-sm" placeholder="Adresse" value={supplierForm.address} onChange={(e) => setSupplierForm((prev) => ({ ...prev, address: e.target.value }))} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input className="rounded border p-2 text-sm" placeholder="Code postal" value={supplierForm.postalCode} onChange={(e) => setSupplierForm((prev) => ({ ...prev, postalCode: e.target.value }))} />
+                      <input className="rounded border p-2 text-sm" placeholder="Ville" value={supplierForm.city} onChange={(e) => setSupplierForm((prev) => ({ ...prev, city: e.target.value }))} />
                     </div>
-                    <form onSubmit={handleUpdateSupplier} className="grid gap-3 sm:grid-cols-2">
-                      <input className="rounded border p-2" placeholder="Nom" required value={editingSupplier.name} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, name: e.target.value }))} />
-                      <input className="rounded border p-2" placeholder="Identifiant" type="text" required value={editingSupplier.email} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, email: e.target.value }))} />
-                      <input className="rounded border p-2" placeholder="Nouveau mot de passe (optionnel)" type="password" minLength={6} value={editingSupplier.password || ''} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, password: e.target.value }))} />
-                      <input className="rounded border p-2" placeholder="Telephone" value={editingSupplier.phone} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, phone: e.target.value }))} />
-                      <input className="rounded border p-2" placeholder="Contact" value={editingSupplier.contact} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, contact: e.target.value }))} />
-                      <input className="rounded border p-2 sm:col-span-2" placeholder="Adresse" value={editingSupplier.address} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, address: e.target.value }))} />
-                      <input className="rounded border p-2" placeholder="Code postal" value={editingSupplier.postalCode} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, postalCode: e.target.value }))} />
-                      <input className="rounded border p-2" placeholder="Ville" value={editingSupplier.city} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, city: e.target.value }))} />
-                      <div className="flex gap-2 sm:col-span-2">
-                        <button type="submit" className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Enregistrer</button>
-                        <button type="button" onClick={() => setEditingSupplier(null)} className="rounded border px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
-                      </div>
-                    </form>
-                  </div>
+                    <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700">Créer fournisseur</button>
+                  </form>
                 </div>
-              )}
 
-              <div>
-                <h2 className="text-xl font-bold mb-3">Créer un fournisseur</h2>
-                <form onSubmit={handleCreateSupplier} className="grid gap-3 sm:grid-cols-2">
-                  <input className="rounded border p-2" placeholder="Nom" required value={supplierForm.name} onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))} />
-                  <input className="rounded border p-2" placeholder="Identifiant / Email" required type="text" value={supplierForm.email} onChange={(e) => setSupplierForm((prev) => ({ ...prev, email: e.target.value }))} />
-                  <input className="rounded border p-2" placeholder="Mot de passe" required minLength={6} type="password" value={supplierForm.password} onChange={(e) => setSupplierForm((prev) => ({ ...prev, password: e.target.value }))} />
-                  <input className="rounded border p-2" placeholder="Telephone" required value={supplierForm.phone} onChange={(e) => setSupplierForm((prev) => ({ ...prev, phone: e.target.value }))} />
-                  <input className="rounded border p-2" placeholder="Contact" value={supplierForm.contact} onChange={(e) => setSupplierForm((prev) => ({ ...prev, contact: e.target.value }))} />
-                  <input className="rounded border p-2 sm:col-span-2" placeholder="Adresse" value={supplierForm.address} onChange={(e) => setSupplierForm((prev) => ({ ...prev, address: e.target.value }))} />
-                  <input className="rounded border p-2" placeholder="Code postal" value={supplierForm.postalCode} onChange={(e) => setSupplierForm((prev) => ({ ...prev, postalCode: e.target.value }))} />
-                  <input className="rounded border p-2" placeholder="Ville" value={supplierForm.city} onChange={(e) => setSupplierForm((prev) => ({ ...prev, city: e.target.value }))} />
-                  <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer fournisseur</button>
-                </form>
-              </div>
-
-              <div>
-                <div className="mb-3 flex items-center gap-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">Fournisseurs ({suppliers.length})</h3>
+                {/* Liste fournisseurs */}
+                <div className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">{suppliers.length} fournisseurs</span>
+                  </div>
                   <input
-                    className="flex-1 rounded border p-2 text-sm"
+                    className="mb-3 w-full rounded border p-2 text-sm"
                     placeholder="Rechercher par nom, identifiant ou ville…"
                     value={supplierSearch}
                     onChange={(e) => setSupplierSearch(e.target.value)}
                   />
-                </div>
-                <div className="space-y-2">
-                  {suppliers
-                    .filter((s) => {
-                      const q = supplierSearch.toLowerCase();
-                      return !q || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || (s.city || '').toLowerCase().includes(q);
-                    })
-                    .map((supplier) => (
-                      <div
-                        key={supplier.id}
-                        className="flex cursor-pointer items-center justify-between rounded border border-slate-200 p-3 text-sm hover:bg-slate-50 transition-colors"
-                        onClick={() => setEditingSupplier({ ...supplier, password: '' })}
-                      >
-                        <div>
-                          <p className="font-semibold">{supplier.name}</p>
-                          <p className="text-slate-500">{supplier.email}{supplier.city ? ` · ${supplier.city}` : ''}</p>
-                        </div>
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => setEditingSupplier({ ...supplier, password: '' })} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>
-                          <button onClick={() => handleDeleteSupplier(supplier.id)} className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700">Supprimer</button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="space-y-1">
+                    {suppliers
+                      .filter((s) => {
+                        const q = supplierSearch.toLowerCase();
+                        return !q || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || (s.city || '').toLowerCase().includes(q);
+                      })
+                      .map((supplier) => (
+                        <button
+                          key={supplier.id}
+                          className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                            editingSupplier?.id === supplier.id
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 hover:bg-slate-50'
+                          }`}
+                          onClick={() => openSupplierPanel(supplier)}
+                        >
+                          <p className="font-semibold truncate">{supplier.name}</p>
+                          <p className={`truncate text-xs ${editingSupplier?.id === supplier.id ? 'text-slate-300' : 'text-slate-500'}`}>
+                            {supplier.email}{supplier.city ? ` · ${supplier.city}` : ''}
+                          </p>
+                        </button>
+                      ))}
+                  </div>
                 </div>
               </div>
+
+              {/* Colonne droite : fiche fournisseur */}
+              {editingSupplier ? (
+                <div className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-start justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold">{editingSupplier.name}</h2>
+                      <p className="text-sm text-slate-500">{editingSupplier.email}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDeleteSupplier(editingSupplier.id)}
+                        className="rounded bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+                      >
+                        Supprimer
+                      </button>
+                      <button
+                        onClick={() => { setEditingSupplier(null); setSupplierAssignments([]); }}
+                        className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+                      >
+                        Fermer
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Formulaire d'édition */}
+                    <div>
+                      <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Informations</h3>
+                      <form onSubmit={handleUpdateSupplier} className="grid gap-3 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Nom</label>
+                          <input className="w-full rounded border p-2" required value={editingSupplier.name} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, name: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Identifiant</label>
+                          <input className="w-full rounded border p-2" type="text" required value={editingSupplier.email} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, email: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Nouveau mot de passe</label>
+                          <input className="w-full rounded border p-2" placeholder="(optionnel)" type="password" minLength={6} value={editingSupplier.password || ''} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, password: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Téléphone</label>
+                          <input className="w-full rounded border p-2" value={editingSupplier.phone} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, phone: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Contact</label>
+                          <input className="w-full rounded border p-2" value={editingSupplier.contact} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, contact: e.target.value }))} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Adresse</label>
+                          <input className="w-full rounded border p-2" value={editingSupplier.address} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, address: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Code postal</label>
+                          <input className="w-full rounded border p-2" value={editingSupplier.postalCode} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, postalCode: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-slate-500">Ville</label>
+                          <input className="w-full rounded border p-2" value={editingSupplier.city} onChange={(e) => setEditingSupplier((prev) => prev && ({ ...prev, city: e.target.value }))} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <button type="submit" className="rounded bg-slate-900 px-5 py-2 text-white hover:bg-slate-700">Enregistrer les modifications</button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Quais affectés */}
+                    <div>
+                      <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Quais affectés</h3>
+                      {loadingAssignments ? (
+                        <p className="text-sm text-slate-400">Chargement…</p>
+                      ) : supplierAssignments.length === 0 ? (
+                        <p className="text-sm text-slate-400 italic">Aucun quai affecté pour ce fournisseur.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {Object.values(
+                            supplierAssignments.reduce<Record<string, { locationName: string; items: SupplierAssignment[] }>>((acc, a) => {
+                              const locId = a.quay.location.id;
+                              if (!acc[locId]) acc[locId] = { locationName: a.quay.location.name, items: [] };
+                              acc[locId].items.push(a);
+                              return acc;
+                            }, {})
+                          ).map((group) => (
+                            <div key={group.locationName} className="rounded-lg border border-slate-200 p-3">
+                              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{group.locationName}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {group.items.map((a) => (
+                                  <span
+                                    key={a.id}
+                                    className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                                  >
+                                    {a.quay.name}
+                                    <button
+                                      onClick={() => handleDeleteAssignment(a.id)}
+                                      className="ml-1 text-slate-400 hover:text-red-600 font-bold leading-none"
+                                      title="Retirer ce quai"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-400">
+                  <p className="text-sm">Sélectionnez un fournisseur pour voir sa fiche</p>
+                </div>
+              )}
             </div>
           )}
 

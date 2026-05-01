@@ -526,4 +526,32 @@ router.post('/quay-assignments', authMiddleware, requireRole('ADMIN'), async (re
   }
 });
 
+// Get quay assignments for a specific supplier
+router.get('/suppliers/:id/assignments', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const assignments = await prisma.quayAssignment.findMany({
+      where: { supplierId: req.params.id },
+      include: {
+        quay: {
+          include: { location: { select: { id: true, name: true } } },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(assignments);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch assignments' });
+  }
+});
+
+// Delete a quay assignment
+router.delete('/quay-assignments/:id', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  try {
+    await prisma.quayAssignment.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete assignment' });
+  }
+});
+
 export default router;
