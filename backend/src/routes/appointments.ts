@@ -48,6 +48,17 @@ const isAppointmentStatus = (value: string): value is AppointmentStatusValue => 
   return APPOINTMENT_STATUS_VALUES.includes(value as AppointmentStatusValue);
 };
 
+const parseOptionalNonNegativeInt = (value: unknown) => {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+};
+
 const auditStatusChange = async (
   tx: any,
   appointmentId: string,
@@ -439,6 +450,73 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// Track pallet balance per supplier (employee/admin)
+router.get('/pallet-balances', authMiddleware, requireRole('EMPLOYEE', 'ADMIN'), async (req: Request, res: Response) => {
+  try {
+    let scope: any = {};
+
+    if (req.user?.role === 'EMPLOYEE') {
+      const userAccess = await prisma.userQuayAccess.findMany({
+        where: { userId: req.user.id },
+        select: { quayId: true },
+      });
+
+      if (userAccess.length > 0) {
+        scope = { quayId: { in: userAccess.map((ua) => ua.quayId) } };
+      } else if (req.user.locationId) {
+        scope = { locationId: req.user.locationId };
+      }
+    }
+
+    const deliveredAppointments = await prisma.appointment.findMany({
+      where: {
+        ...scope,
+        status: 'DELIVERED',
+      },
+      select: {
+        supplierId: true,
+        palletsReceived: true,
+        palletsReturned: true,
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const balances = new Map<string, {
+      supplierId: string;
+      supplierName: string;
+      palletsReceived: number;
+      palletsReturned: number;
+      balance: number;
+    }>();
+
+    deliveredAppointments.forEach((appointment) => {
+      const supplierId = appointment.supplierId;
+      const existing = balances.get(supplierId) || {
+        supplierId,
+        supplierName: appointment.supplier.name,
+        palletsReceived: 0,
+        palletsReturned: 0,
+        balance: 0,
+      };
+
+      existing.palletsReceived += appointment.palletsReceived || 0;
+      existing.palletsReturned += appointment.palletsReturned || 0;
+      existing.balance = existing.palletsReceived - existing.palletsReturned;
+
+      balances.set(supplierId, existing);
+    });
+
+    res.json(Array.from(balances.values()).sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch pallet balances' });
+  }
+});
+
 // Update appointment status (employee/admin)
 router.patch('/:id/status', authMiddleware, requireRole('EMPLOYEE', 'ADMIN'), async (req: Request, res: Response) => {
   try {
@@ -447,15 +525,38 @@ router.patch('/:id/status', authMiddleware, requireRole('EMPLOYEE', 'ADMIN'), as
       return res.status(400).json({ error: 'Invalid status value' });
     }
 
+    const deliveryNoteNumber = typeof req.body.deliveryNoteNumber === 'string'
+      ? req.body.deliveryNoteNumber.trim()
+      : '';
+    const palletsReceived = parseOptionalNonNegativeInt(req.body.palletsReceived);
+    const palletsReturned = parseOptionalNonNegativeInt(req.body.palletsReturned);
+
+    if (palletsReceived === null || palletsReturned === null) {
+      return res.status(400).json({ error: 'Les quantites de palettes doivent etre des nombres entiers positifs.' });
+    }
+
+    if (requestedStatus === 'DELIVERED') {
+      if (palletsReceived === undefined || palletsReturned === undefined) {
+        return res.status(400).json({ error: 'Les palettes recues et rendues sont obligatoires pour valider une livraison.' });
+      }
+    }
+
     const appointment = await prisma.$transaction(async (tx) => {
       const current = await tx.appointment.findUnique({ where: { id: req.params.id } });
       if (!current) {
         return null;
       }
 
+      const updateData: any = { status: requestedStatus };
+      if (requestedStatus === 'DELIVERED') {
+        updateData.deliveryNoteNumber = deliveryNoteNumber || null;
+        updateData.palletsReceived = palletsReceived;
+        updateData.palletsReturned = palletsReturned;
+      }
+
       const updated = await tx.appointment.update({
         where: { id: req.params.id },
-        data: { status: requestedStatus },
+        data: updateData,
       });
 
       if (current.status !== requestedStatus) {

@@ -10,6 +10,9 @@ interface Appointment {
   orderNumber: string;
   volume: number;
   deliveryType: 'PALLET' | 'PARCEL';
+  deliveryNoteNumber?: string | null;
+  palletsReceived?: number | null;
+  palletsReturned?: number | null;
   scheduledDate: string;
   status: AppointmentStatus;
   createdByRole?: 'ADMIN' | 'EMPLOYEE' | 'SUPPLIER';
@@ -44,6 +47,14 @@ interface LocationOption {
   id: string;
   name: string;
   quays: QuayOption[];
+}
+
+interface PalletBalanceRow {
+  supplierId: string;
+  supplierName: string;
+  palletsReceived: number;
+  palletsReturned: number;
+  balance: number;
 }
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
@@ -116,6 +127,13 @@ export default function EmployeeDashboard() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [deliveryModalAppt, setDeliveryModalAppt] = useState<Appointment | null>(null);
+  const [palletBalances, setPalletBalances] = useState<PalletBalanceRow[]>([]);
+  const [deliveryValidation, setDeliveryValidation] = useState({
+    deliveryNoteNumber: '',
+    palletsReceived: 0,
+    palletsReturned: 0,
+  });
   const [createForm, setCreateForm] = useState({
     supplierId: '',
     orderNumber: '',
@@ -142,10 +160,11 @@ export default function EmployeeDashboard() {
     setLoading(true);
     setError('');
     try {
-      const [appointmentsResponse, suppliersResponse, locationsResponse] = await Promise.all([
+      const [appointmentsResponse, suppliersResponse, locationsResponse, balancesResponse] = await Promise.all([
         client.get('/appointments'),
         client.get('/suppliers'),
         client.get('/locations'),
+        client.get('/appointments/pallet-balances'),
       ]);
       setAppointments(appointmentsResponse.data || []);
       setSuppliers((suppliersResponse.data || []).map((supplier: any) => ({ id: supplier.id, name: supplier.name })));
@@ -154,6 +173,7 @@ export default function EmployeeDashboard() {
         name: location.name,
         quays: (location.quays || []).map((quay: any) => ({ id: quay.id, name: quay.name })),
       })));
+      setPalletBalances(balancesResponse.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Impossible de charger les rendez-vous.');
     } finally {
@@ -165,20 +185,48 @@ export default function EmployeeDashboard() {
     loadDashboardData();
   }, []);
 
-  const updateStatus = async (id: string, status: AppointmentStatus) => {
+  const updateStatus = async (
+    id: string,
+    status: AppointmentStatus,
+    details?: { deliveryNoteNumber: string; palletsReceived: number; palletsReturned: number }
+  ) => {
     setUpdatingId(id);
     setMessage('');
     setError('');
     try {
-      await client.patch(`/appointments/${id}/status`, { status });
+      await client.patch(`/appointments/${id}/status`, {
+        status,
+        ...(details || {}),
+      });
       setMessage(`Statut mis à jour : ${STATUS_LABELS[status]}`);
       setSelectedAppt(null);
+      setDeliveryModalAppt(null);
       await loadDashboardData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Mise à jour impossible.');
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const openDeliveredValidation = (appt: Appointment) => {
+    const defaultReceived = appt.palletsReceived ?? (appt.deliveryType === 'PALLET' ? appt.volume : 0);
+    const defaultReturned = appt.palletsReturned ?? defaultReceived;
+    setDeliveryValidation({
+      deliveryNoteNumber: appt.deliveryNoteNumber || '',
+      palletsReceived: defaultReceived,
+      palletsReturned: defaultReturned,
+    });
+    setDeliveryModalAppt(appt);
+  };
+
+  const submitDeliveredValidation = async () => {
+    if (!deliveryModalAppt) return;
+    await updateStatus(deliveryModalAppt.id, 'DELIVERED', {
+      deliveryNoteNumber: deliveryValidation.deliveryNoteNumber.trim(),
+      palletsReceived: Math.max(0, Number(deliveryValidation.palletsReceived) || 0),
+      palletsReturned: Math.max(0, Number(deliveryValidation.palletsReturned) || 0),
+    });
   };
 
   useEffect(() => {
@@ -372,6 +420,43 @@ export default function EmployeeDashboard() {
           </div>
         </div>
 
+        <section className="rounded-xl border border-slate-300 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900">Suivi palettes fournisseurs</h2>
+            <span className="text-xs text-slate-500">Solde = reçues - rendues</span>
+          </div>
+          {palletBalances.length === 0 ? (
+            <p className="text-sm text-slate-500">Aucune donnée palette disponible pour le moment.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <th className="px-2 py-2">Fournisseur</th>
+                    <th className="px-2 py-2">Reçues</th>
+                    <th className="px-2 py-2">Rendues</th>
+                    <th className="px-2 py-2">Solde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {palletBalances.map((row) => (
+                    <tr key={row.supplierId} className="border-b border-slate-100">
+                      <td className="px-2 py-2 font-semibold text-slate-800">{row.supplierName}</td>
+                      <td className="px-2 py-2 text-slate-600">{row.palletsReceived}</td>
+                      <td className="px-2 py-2 text-slate-600">{row.palletsReturned}</td>
+                      <td className="px-2 py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${row.balance > 0 ? 'bg-amber-100 text-amber-800' : row.balance < 0 ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                          {row.balance > 0 ? `Nous devons ${row.balance}` : row.balance < 0 ? `${Math.abs(row.balance)} rendu(es) en trop` : 'Equilibré'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
         {message && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
         {error && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
 
@@ -460,7 +545,13 @@ export default function EmployeeDashboard() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {listFiltered.map((appt) => (
-                  <AppointmentRow key={appt.id} appt={appt} updatingId={updatingId} onUpdate={updateStatus} />
+                  <AppointmentRow
+                    key={appt.id}
+                    appt={appt}
+                    updatingId={updatingId}
+                    onUpdate={updateStatus}
+                    onOpenDelivered={openDeliveredValidation}
+                  />
                 ))}
               </div>
             )}
@@ -482,6 +573,13 @@ export default function EmployeeDashboard() {
               <p><span className="font-semibold">Date :</span> {new Date(selectedAppt.scheduledDate).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}</p>
               {selectedAppt.location && <p><span className="font-semibold">Site :</span> {selectedAppt.location.name}</p>}
               {selectedAppt.quay && <p><span className="font-semibold">Quai :</span> {selectedAppt.quay.name}</p>}
+              {selectedAppt.deliveryNoteNumber && <p><span className="font-semibold">BL :</span> {selectedAppt.deliveryNoteNumber}</p>}
+              {(selectedAppt.palletsReceived !== undefined && selectedAppt.palletsReceived !== null) && (
+                <p><span className="font-semibold">Palettes reçues :</span> {selectedAppt.palletsReceived}</p>
+              )}
+              {(selectedAppt.palletsReturned !== undefined && selectedAppt.palletsReturned !== null) && (
+                <p><span className="font-semibold">Palettes rendues :</span> {selectedAppt.palletsReturned}</p>
+              )}
               {selectedAppt.createdByRole === 'EMPLOYEE' && (
                 <p>
                   <span className="font-semibold">Origine :</span>{' '}
@@ -511,7 +609,7 @@ export default function EmployeeDashboard() {
             </div>
             {(selectedAppt.status === 'SCHEDULED' || selectedAppt.status === 'RESCHEDULED') && (
               <div className="flex gap-2 flex-wrap">
-                <button disabled={updatingId === selectedAppt.id} onClick={() => updateStatus(selectedAppt.id, 'DELIVERED')} className="flex-1 rounded bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50">✓ Livré</button>
+                <button disabled={updatingId === selectedAppt.id} onClick={() => openDeliveredValidation(selectedAppt)} className="flex-1 rounded bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50">✓ Livré</button>
                 {selectedAppt.status === 'SCHEDULED' && (
                   <>
                     <button disabled={updatingId === selectedAppt.id} onClick={() => updateStatus(selectedAppt.id, 'NO_SHOW')} className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">✗ Absent</button>
@@ -523,11 +621,90 @@ export default function EmployeeDashboard() {
           </div>
         </div>
       )}
+
+      {/* Modal validation livraison */}
+      {deliveryModalAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDeliveryModalAppt(null)}>
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900">Validation livraison</h3>
+              <button onClick={() => setDeliveryModalAppt(null)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">×</button>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                <span className="font-semibold">Commande :</span> {deliveryModalAppt.orderNumber}
+              </p>
+              <input
+                className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Numero de bon de livraison (BL)"
+                value={deliveryValidation.deliveryNoteNumber}
+                onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, deliveryNoteNumber: e.target.value }))}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes reçues</label>
+                  <input
+                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                    type="number"
+                    min={0}
+                    value={deliveryValidation.palletsReceived}
+                    onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, palletsReceived: Math.max(0, Number(e.target.value) || 0) }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes rendues</label>
+                  <input
+                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                    type="number"
+                    min={0}
+                    value={deliveryValidation.palletsReturned}
+                    onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, palletsReturned: Math.max(0, Number(e.target.value) || 0) }))}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                Solde de cet arrivage: {deliveryValidation.palletsReceived - deliveryValidation.palletsReturned > 0
+                  ? `vous devez ${deliveryValidation.palletsReceived - deliveryValidation.palletsReturned} palette(s) au fournisseur`
+                  : deliveryValidation.palletsReceived - deliveryValidation.palletsReturned < 0
+                    ? `vous avez rendu ${Math.abs(deliveryValidation.palletsReceived - deliveryValidation.palletsReturned)} palette(s) de plus`
+                    : 'équilibré'}
+              </p>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeliveryModalAppt(null)}
+                className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={updatingId === deliveryModalAppt.id}
+                onClick={submitDeliveredValidation}
+                className="flex-1 rounded bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {updatingId === deliveryModalAppt.id ? 'Validation...' : 'Valider livré'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function AppointmentRow({ appt, updatingId, onUpdate }: { appt: Appointment; updatingId: string | null; onUpdate: (id: string, status: AppointmentStatus) => void }) {
+function AppointmentRow({
+  appt,
+  updatingId,
+  onUpdate,
+  onOpenDelivered,
+}: {
+  appt: Appointment;
+  updatingId: string | null;
+  onUpdate: (id: string, status: AppointmentStatus) => void;
+  onOpenDelivered: (appt: Appointment) => void;
+}) {
   return (
     <div className={`flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between ${appt.createdByRole === 'EMPLOYEE' ? 'bg-amber-50' : ''}`}>
       <div className="space-y-0.5">
@@ -547,7 +724,7 @@ function AppointmentRow({ appt, updatingId, onUpdate }: { appt: Appointment; upd
       </div>
       <div className="flex flex-wrap gap-2">
         {(appt.status === 'SCHEDULED' || appt.status === 'RESCHEDULED') && (
-          <button disabled={updatingId === appt.id} onClick={() => onUpdate(appt.id, 'DELIVERED')} className="rounded bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50">✓ Livré</button>
+          <button disabled={updatingId === appt.id} onClick={() => onOpenDelivered(appt)} className="rounded bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50">✓ Livré</button>
         )}
         {appt.status === 'SCHEDULED' && (
           <>

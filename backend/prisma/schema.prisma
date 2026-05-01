@@ -152,6 +152,9 @@ model Appointment {
   orderNumber       String
   volume            Int
   deliveryType      DeliveryType
+  deliveryNoteNumber String?
+  palletsReceived   Int?
+  palletsReturned   Int?
   scheduledDate     DateTime
   locationId        String
   location          DeliveryLocation @relation(fields: [locationId], references: [id])
