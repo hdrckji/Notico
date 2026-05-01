@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { startAutoCancelUndeliveredJob } from './services/appointmentAutoCancel';
 
 // Load environment variables
 dotenv.config();
@@ -9,6 +10,7 @@ dotenv.config();
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
+let stopAutoCancelJob: (() => void) | null = null;
 
 console.log('Booting backend...', {
   nodeEnv: process.env.NODE_ENV || 'undefined',
@@ -53,6 +55,7 @@ app.get('/', (_req, res) => {
 
 const server = app.listen(PORT, HOST, () => {
   console.log(`✅ Server running on http://${HOST}:${PORT}`);
+  stopAutoCancelJob = startAutoCancelUndeliveredJob();
 
   setImmediate(async () => {
     const routeLoaders = [
@@ -90,6 +93,9 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
+  if (stopAutoCancelJob) {
+    stopAutoCancelJob();
+  }
   server.close(() => process.exit(0));
 });
 
