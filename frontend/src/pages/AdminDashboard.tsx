@@ -102,6 +102,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierSearch, setSupplierSearch] = useState('');
   const [internalUsers, setInternalUsers] = useState<InternalUser[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [editingSupplier, setEditingSupplier] = useState<(Supplier & { password?: string }) | null>(null);
@@ -569,20 +570,37 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">Fournisseurs ({suppliers.length})</h3>
+                <div className="mb-3 flex items-center gap-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">Fournisseurs ({suppliers.length})</h3>
+                  <input
+                    className="flex-1 rounded border p-2 text-sm"
+                    placeholder="Rechercher par nom, identifiant ou ville…"
+                    value={supplierSearch}
+                    onChange={(e) => setSupplierSearch(e.target.value)}
+                  />
+                </div>
                 <div className="space-y-2">
-                  {suppliers.map((supplier) => (
-                    <div key={supplier.id} className="flex items-center justify-between rounded border border-slate-200 p-3 text-sm">
-                      <div>
-                        <p className="font-semibold">{supplier.name}</p>
-                        <p className="text-slate-500">{supplier.email}{supplier.city ? ` · ${supplier.city}` : ''}</p>
+                  {suppliers
+                    .filter((s) => {
+                      const q = supplierSearch.toLowerCase();
+                      return !q || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || (s.city || '').toLowerCase().includes(q);
+                    })
+                    .map((supplier) => (
+                      <div
+                        key={supplier.id}
+                        className="flex cursor-pointer items-center justify-between rounded border border-slate-200 p-3 text-sm hover:bg-slate-50 transition-colors"
+                        onClick={() => setEditingSupplier({ ...supplier, password: '' })}
+                      >
+                        <div>
+                          <p className="font-semibold">{supplier.name}</p>
+                          <p className="text-slate-500">{supplier.email}{supplier.city ? ` · ${supplier.city}` : ''}</p>
+                        </div>
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => setEditingSupplier({ ...supplier, password: '' })} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>
+                          <button onClick={() => handleDeleteSupplier(supplier.id)} className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700">Supprimer</button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingSupplier({ ...supplier, password: '' })} className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Modifier</button>
-                        <button onClick={() => handleDeleteSupplier(supplier.id)} className="rounded bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700">Supprimer</button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             </div>
