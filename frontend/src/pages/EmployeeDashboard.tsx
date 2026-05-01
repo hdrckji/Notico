@@ -127,7 +127,6 @@ export default function EmployeeDashboard() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
-  const [deliveryModalAppt, setDeliveryModalAppt] = useState<Appointment | null>(null);
   const [palletBalances, setPalletBalances] = useState<PalletBalanceRow[]>([]);
   const [deliveryValidation, setDeliveryValidation] = useState({
     deliveryNoteNumber: '',
@@ -200,7 +199,6 @@ export default function EmployeeDashboard() {
       });
       setMessage(`Statut mis à jour : ${STATUS_LABELS[status]}`);
       setSelectedAppt(null);
-      setDeliveryModalAppt(null);
       await loadDashboardData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Mise à jour impossible.');
@@ -217,12 +215,12 @@ export default function EmployeeDashboard() {
       palletsReceived: defaultReceived,
       palletsReturned: defaultReturned,
     });
-    setDeliveryModalAppt(appt);
+    setSelectedAppt(appt);
   };
 
   const submitDeliveredValidation = async () => {
-    if (!deliveryModalAppt) return;
-    await updateStatus(deliveryModalAppt.id, 'DELIVERED', {
+    if (!selectedAppt) return;
+    await updateStatus(selectedAppt.id, 'DELIVERED', {
       deliveryNoteNumber: deliveryValidation.deliveryNoteNumber.trim(),
       palletsReceived: Math.max(0, Number(deliveryValidation.palletsReceived) || 0),
       palletsReturned: Math.max(0, Number(deliveryValidation.palletsReturned) || 0),
@@ -514,7 +512,7 @@ export default function EmployeeDashboard() {
                         {dayAppts.map((appt) => (
                           <button
                             key={appt.id}
-                            onClick={() => setSelectedAppt(appt)}
+                            onClick={() => openDeliveredValidation(appt)}
                             className={`w-full rounded border text-left px-1.5 py-1 text-xs leading-tight hover:opacity-80 transition ${
                               appt.createdByRole === 'EMPLOYEE' ? EMPLOYEE_CREATED_CLASSES : STATUS_COLORS[appt.status]
                             }`}
@@ -608,8 +606,49 @@ export default function EmployeeDashboard() {
               </p>
             </div>
             {(selectedAppt.status === 'SCHEDULED' || selectedAppt.status === 'RESCHEDULED') && (
-              <div className="flex gap-2 flex-wrap">
-                <button disabled={updatingId === selectedAppt.id} onClick={() => openDeliveredValidation(selectedAppt)} className="flex-1 rounded bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50">✓ Livré</button>
+              <div className="space-y-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Validation livraison</p>
+                  <input
+                    className="mb-2 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                    placeholder="Numero de bon de livraison (BL)"
+                    value={deliveryValidation.deliveryNoteNumber}
+                    onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, deliveryNoteNumber: e.target.value }))}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes reçues</label>
+                      <input
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                        type="number"
+                        min={0}
+                        value={deliveryValidation.palletsReceived}
+                        onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, palletsReceived: Math.max(0, Number(e.target.value) || 0) }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes rendues</label>
+                      <input
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                        type="number"
+                        min={0}
+                        value={deliveryValidation.palletsReturned}
+                        onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, palletsReturned: Math.max(0, Number(e.target.value) || 0) }))}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Solde de cet arrivage: {deliveryValidation.palletsReceived - deliveryValidation.palletsReturned > 0
+                      ? `vous devez ${deliveryValidation.palletsReceived - deliveryValidation.palletsReturned} palette(s) au fournisseur`
+                      : deliveryValidation.palletsReceived - deliveryValidation.palletsReturned < 0
+                        ? `vous avez rendu ${Math.abs(deliveryValidation.palletsReceived - deliveryValidation.palletsReturned)} palette(s) de plus`
+                        : 'équilibré'}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  <button disabled={updatingId === selectedAppt.id} onClick={submitDeliveredValidation} className="flex-1 rounded bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50">✓ Livré</button>
+                </div>
                 {selectedAppt.status === 'SCHEDULED' && (
                   <>
                     <button disabled={updatingId === selectedAppt.id} onClick={() => updateStatus(selectedAppt.id, 'NO_SHOW')} className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">✗ Absent</button>
@@ -618,75 +657,6 @@ export default function EmployeeDashboard() {
                 )}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal validation livraison */}
-      {deliveryModalAppt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDeliveryModalAppt(null)}>
-          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Validation livraison</h3>
-              <button onClick={() => setDeliveryModalAppt(null)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">×</button>
-            </div>
-            <div className="space-y-3">
-              <p className="text-sm text-slate-600">
-                <span className="font-semibold">Commande :</span> {deliveryModalAppt.orderNumber}
-              </p>
-              <input
-                className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                placeholder="Numero de bon de livraison (BL)"
-                value={deliveryValidation.deliveryNoteNumber}
-                onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, deliveryNoteNumber: e.target.value }))}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes reçues</label>
-                  <input
-                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                    type="number"
-                    min={0}
-                    value={deliveryValidation.palletsReceived}
-                    onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, palletsReceived: Math.max(0, Number(e.target.value) || 0) }))}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes rendues</label>
-                  <input
-                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-                    type="number"
-                    min={0}
-                    value={deliveryValidation.palletsReturned}
-                    onChange={(e) => setDeliveryValidation((prev) => ({ ...prev, palletsReturned: Math.max(0, Number(e.target.value) || 0) }))}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-slate-500">
-                Solde de cet arrivage: {deliveryValidation.palletsReceived - deliveryValidation.palletsReturned > 0
-                  ? `vous devez ${deliveryValidation.palletsReceived - deliveryValidation.palletsReturned} palette(s) au fournisseur`
-                  : deliveryValidation.palletsReceived - deliveryValidation.palletsReturned < 0
-                    ? `vous avez rendu ${Math.abs(deliveryValidation.palletsReceived - deliveryValidation.palletsReturned)} palette(s) de plus`
-                    : 'équilibré'}
-              </p>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setDeliveryModalAppt(null)}
-                className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                disabled={updatingId === deliveryModalAppt.id}
-                onClick={submitDeliveredValidation}
-                className="flex-1 rounded bg-green-600 px-3 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
-              >
-                {updatingId === deliveryModalAppt.id ? 'Validation...' : 'Valider livré'}
-              </button>
-            </div>
           </div>
         </div>
       )}
