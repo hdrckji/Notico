@@ -477,20 +477,52 @@ router.delete('/quays/:id', authMiddleware, requireRole('ADMIN'), async (req: Re
 
 // ============ QUAY ASSIGNMENTS ============
 
-// Assign quay to supplier
+// Assign one or more quays from a specific site to a supplier
 router.post('/quay-assignments', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
   try {
-    const assignment = await prisma.quayAssignment.create({
-      data: {
-        supplierId: req.body.supplierId,
-        quayId: req.body.quayId,
+    const { supplierId, locationId } = req.body;
+    const quayIds: string[] = Array.isArray(req.body.quayIds)
+      ? req.body.quayIds
+      : req.body.quayId
+        ? [req.body.quayId]
+        : [];
+
+    if (!supplierId || !locationId || quayIds.length === 0) {
+      return res.status(400).json({ error: 'Le fournisseur, le site et au moins un quai sont obligatoires.' });
+    }
+
+    const quays = await prisma.quay.findMany({
+      where: {
+        id: { in: quayIds },
+        locationId,
       },
-      include: { supplier: true, quay: true },
+      select: { id: true },
     });
 
-    res.status(201).json(assignment);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to assign quay' });
+    if (quays.length !== quayIds.length) {
+      return res.status(400).json({ error: 'Un ou plusieurs quais selectionnes ne correspondent pas au site choisi.' });
+    }
+
+    await prisma.quayAssignment.createMany({
+      data: quayIds.map((quayId) => ({
+        supplierId,
+        quayId,
+      })),
+      skipDuplicates: true,
+    });
+
+    const assignments = await prisma.quayAssignment.findMany({
+      where: {
+        supplierId,
+        quayId: { in: quayIds },
+      },
+      include: { supplier: true, quay: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.status(201).json(assignments);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to assign quays' });
   }
 });
 

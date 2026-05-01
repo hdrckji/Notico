@@ -156,12 +156,17 @@ export default function AdminDashboard() {
 
   const [assignmentForm, setAssignmentForm] = useState({
     supplierId: '',
-    quayId: '',
+    locationId: '',
+    quayIds: [] as string[],
   });
 
   const allQuays = useMemo(
     () => locations.flatMap((location) => location.quays.map((quay) => ({ ...quay, locationName: location.name }))),
     [locations]
+  );
+  const assignmentQuays = useMemo(
+    () => allQuays.filter((quay) => !assignmentForm.locationId || quay.locationId === assignmentForm.locationId),
+    [allQuays, assignmentForm.locationId]
   );
 
   const loadData = async () => {
@@ -437,8 +442,8 @@ export default function AdminDashboard() {
 
     try {
       await client.post('/admin/quay-assignments', assignmentForm);
-      setMessage('Affectation fournisseur-quai creee.');
-      setAssignmentForm({ supplierId: '', quayId: '' });
+      setMessage('Affectations fournisseur-quai creees.');
+      setAssignmentForm({ supplierId: '', locationId: '', quayIds: [] });
       await loadData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Affectation impossible.');
@@ -873,7 +878,8 @@ export default function AdminDashboard() {
 
           {activeSection === 'assignments' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold">Affecter un quai à un fournisseur</h2>
+              <h2 className="text-xl font-bold">Affecter des quais à un fournisseur</h2>
+              <p className="text-sm text-slate-600">Un meme fournisseur peut etre autorise sur plusieurs sites. Pour chaque site, selectionnez un ou plusieurs quais predefinis.</p>
               <form onSubmit={handleAssignQuay} className="grid gap-3 sm:grid-cols-2">
                 <select className="rounded border p-2" required value={assignmentForm.supplierId} onChange={(e) => setAssignmentForm((prev) => ({ ...prev, supplierId: e.target.value }))}>
                   <option value="">Selectionner un fournisseur</option>
@@ -881,13 +887,39 @@ export default function AdminDashboard() {
                     <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
                   ))}
                 </select>
-                <select className="rounded border p-2" required value={assignmentForm.quayId} onChange={(e) => setAssignmentForm((prev) => ({ ...prev, quayId: e.target.value }))}>
-                  <option value="">Selectionner un quai</option>
-                  {allQuays.map((quay) => (
-                    <option key={quay.id} value={quay.id}>{quay.name} ({quay.locationName})</option>
+                <select className="rounded border p-2" required value={assignmentForm.locationId} onChange={(e) => setAssignmentForm((prev) => ({ ...prev, locationId: e.target.value, quayIds: [] }))}>
+                  <option value="">Selectionner un site</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>{location.name}</option>
                   ))}
                 </select>
-                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer affectation</button>
+                <div className="sm:col-span-2 rounded border border-slate-200 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Quais autorises pour ce site</p>
+                  {!assignmentForm.locationId ? (
+                    <p className="text-sm text-slate-500">Selectionnez d abord un site.</p>
+                  ) : assignmentQuays.length === 0 ? (
+                    <p className="text-sm text-slate-500">Aucun quai disponible sur ce site.</p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {assignmentQuays.map((quay) => (
+                        <label key={quay.id} className="flex items-center gap-2 rounded border border-slate-200 p-2 text-sm cursor-pointer hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            checked={assignmentForm.quayIds.includes(quay.id)}
+                            onChange={(e) => setAssignmentForm((prev) => {
+                              const nextIds = e.target.checked
+                                ? [...prev.quayIds, quay.id]
+                                : prev.quayIds.filter((id) => id !== quay.id);
+                              return { ...prev, quayIds: nextIds };
+                            })}
+                          />
+                          <span>{quay.name} ({quay.locationName})</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 sm:col-span-2">Créer affectation(s)</button>
               </form>
             </div>
           )}
