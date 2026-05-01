@@ -2,8 +2,16 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import client from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
-type AdminSection = 'overview' | 'suppliers' | 'users' | 'locations' | 'quays' | 'capacities' | 'assignments' | 'appointments';
+type AdminSection = 'overview' | 'suppliers' | 'users' | 'locations' | 'quays' | 'capacities' | 'assignments' | 'appointments' | 'reliability';
 type AppointmentStatus = 'SCHEDULED' | 'DELIVERED' | 'RESCHEDULED' | 'NO_SHOW' | 'CANCELLED';
+
+interface SupplierReliabilityRow {
+  supplierId: string;
+  supplierName: string;
+  deliveredCount: number;
+  deliveredOnPlannedDateCount: number;
+  onTimeRate: number;
+}
 
 interface Appointment {
   id: string;
@@ -112,6 +120,8 @@ const formatAppointmentAuditActor = (
   return 'Admin';
 };
 
+const toDayKey = (value: string) => new Date(value).toLocaleDateString('fr-CA');
+
 export default function AdminDashboard() {
   const { logout, user } = useAuthStore();
   const [activeSection, setActiveSection] = useState<AdminSection>('overview');
@@ -189,9 +199,48 @@ export default function AdminDashboard() {
     () => allQuays.filter((quay) => !assignmentForm.locationId || quay.locationId === assignmentForm.locationId),
     [allQuays, assignmentForm.locationId]
   );
+  const supplierReliability = useMemo<SupplierReliabilityRow[]>(() => {
+    const bySupplier = new Map<string, SupplierReliabilityRow>();
+
+    appointments
+      .filter((appt) => appt.status === 'DELIVERED')
+      .forEach((appt) => {
+        const supplierId = appt.supplierId;
+        const supplierName = appt.supplier?.name || suppliers.find((s) => s.id === supplierId)?.name || 'Fournisseur';
+        const row = bySupplier.get(supplierId) || {
+          supplierId,
+          supplierName,
+          deliveredCount: 0,
+          deliveredOnPlannedDateCount: 0,
+          onTimeRate: 0,
+        };
+
+        row.deliveredCount += 1;
+
+        const deliveredHistoryEntry = (appt.statusHistory || []).find((entry) => entry.toStatus === 'DELIVERED');
+        if (deliveredHistoryEntry && toDayKey(deliveredHistoryEntry.changedAt) === toDayKey(appt.scheduledDate)) {
+          row.deliveredOnPlannedDateCount += 1;
+        }
+
+        row.onTimeRate = row.deliveredCount > 0
+          ? Math.round((row.deliveredOnPlannedDateCount / row.deliveredCount) * 100)
+          : 0;
+
+        bySupplier.set(supplierId, row);
+      });
+
+    return Array.from(bySupplier.values()).sort((a, b) => {
+      if (b.onTimeRate !== a.onTimeRate) return b.onTimeRate - a.onTimeRate;
+      return b.deliveredCount - a.deliveredCount;
+    });
+  }, [appointments, suppliers]);
   const selectedSupplierBalance = useMemo(
     () => (editingSupplier ? palletBalances.find((row) => row.supplierId === editingSupplier.id) : null),
     [editingSupplier, palletBalances]
+  );
+  const selectedSupplierReliability = useMemo(
+    () => (editingSupplier ? supplierReliability.find((row) => row.supplierId === editingSupplier.id) : null),
+    [editingSupplier, supplierReliability]
   );
 
   const loadData = async () => {
@@ -214,6 +263,7 @@ export default function AdminDashboard() {
       setPalletBalances(balancesResponse.data || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Impossible de charger les donnees admin.');
+            { id: 'reliability', label: 'Fiabilité fournisseurs' },
     } finally {
       setLoading(false);
     }
@@ -775,6 +825,26 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                       </div>
+
+                      <div className="mt-4 rounded-lg border border-slate-200 p-3">
+                        <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Fiabilité livraison</h4>
+                        <div className="space-y-1 text-sm text-slate-700">
+                          <p>Livraisons livrées: <span className="font-semibold">{selectedSupplierReliability?.deliveredCount || 0}</span></p>
+                          <p>Livrées à la date prévue: <span className="font-semibold">{selectedSupplierReliability?.deliveredOnPlannedDateCount || 0}</span></p>
+                          <p>
+                            Taux de fiabilité:{' '}
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                              (selectedSupplierReliability?.onTimeRate || 0) >= 90
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : (selectedSupplierReliability?.onTimeRate || 0) >= 75
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {selectedSupplierReliability?.onTimeRate || 0}%
+                            </span>
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1233,6 +1303,52 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeSection === 'reliability' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Fiabilité fournisseurs</h2>
+                <p className="text-xs text-slate-500">KPI: livraisons réceptionnées à la date prévue</p>
+              </div>
+
+              {supplierReliability.length === 0 ? (
+                <p className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Aucune livraison livrée disponible pour calculer la fiabilité.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-50">
+                      <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2">Fournisseur</th>
+                        <th className="px-3 py-2">Livraisons livrées</th>
+                        <th className="px-3 py-2">Livrées à la date prévue</th>
+                        <th className="px-3 py-2">Fiabilité</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supplierReliability.map((row) => (
+                        <tr key={row.supplierId} className="border-t border-slate-100">
+                          <td className="px-3 py-2 font-semibold text-slate-800">{row.supplierName}</td>
+                          <td className="px-3 py-2 text-slate-600">{row.deliveredCount}</td>
+                          <td className="px-3 py-2 text-slate-600">{row.deliveredOnPlannedDateCount}</td>
+                          <td className="px-3 py-2">
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                              row.onTimeRate >= 90
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : row.onTimeRate >= 75
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {row.onTimeRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </main>
