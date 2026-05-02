@@ -51,6 +51,19 @@ export const t: Record<Lang, Record<string, string>> = {
     status_RESCHEDULED: 'Reprogrammé',
     status_NO_SHOW: 'Absent',
     status_CANCELLED: 'Annulé',
+    // Errors & misc
+    loading: 'Chargement...',
+    errLoadData: 'Impossible de charger vos données.',
+    errNoSite: 'Aucun site ne correspond aux 5 premiers chiffres de ce numéro de commande.',
+    errInvalidVolume: 'Indiquez un volume valide.',
+    errNoSlot: 'Sélectionnez un créneau proposé.',
+    errNoOrderNumber: 'Le numéro de commande est obligatoire.',
+    errBlTooBig: 'Le fichier BL dépasse 5MB. Le rendez-vous a bien été créé sans fichier.',
+    errBlUpload: 'Rendez-vous créé, mais upload du BL impossible.',
+    errNoSlots: 'Impossible de calculer les créneaux.',
+    errCreateAppt: 'Création du rendez-vous impossible.',
+    successAppt: 'Rendez-vous créé avec succès.',
+    volumeLabel: 'Quantité',
   },
   nl: {
     // Login
@@ -96,6 +109,19 @@ export const t: Record<Lang, Record<string, string>> = {
     status_RESCHEDULED: 'Herpland',
     status_NO_SHOW: 'Niet aanwezig',
     status_CANCELLED: 'Geannuleerd',
+    // Errors & misc
+    loading: 'Laden...',
+    errLoadData: 'Kan uw gegevens niet laden.',
+    errNoSite: 'Geen site gevonden voor de eerste 5 cijfers van dit bestelnummer.',
+    errInvalidVolume: 'Geef een geldig volume op.',
+    errNoSlot: 'Selecteer een voorgesteld tijdslot.',
+    errNoOrderNumber: 'Het bestelnummer is verplicht.',
+    errBlTooBig: 'Het BL-bestand overschrijdt 5MB. De afspraak is aangemaakt zonder bestand.',
+    errBlUpload: 'Afspraak aangemaakt, maar upload van BL mislukt.',
+    errNoSlots: 'Kan de tijdslots niet berekenen.',
+    errCreateAppt: 'Aanmaken van de afspraak mislukt.',
+    successAppt: 'Afspraak succesvol aangemaakt.',
+    volumeLabel: 'Hoeveelheid',
   },
   en: {
     // Login
@@ -141,6 +167,19 @@ export const t: Record<Lang, Record<string, string>> = {
     status_RESCHEDULED: 'Rescheduled',
     status_NO_SHOW: 'No show',
     status_CANCELLED: 'Cancelled',
+    // Errors & misc
+    loading: 'Loading...',
+    errLoadData: 'Unable to load your data.',
+    errNoSite: 'No site matches the first 5 digits of this order number.',
+    errInvalidVolume: 'Please enter a valid volume.',
+    errNoSlot: 'Please select a proposed slot.',
+    errNoOrderNumber: 'Order number is required.',
+    errBlTooBig: 'The delivery note file exceeds 5MB. The appointment was created without the file.',
+    errBlUpload: 'Appointment created, but delivery note upload failed.',
+    errNoSlots: 'Unable to fetch available slots.',
+    errCreateAppt: 'Failed to create appointment.',
+    successAppt: 'Appointment successfully created.',
+    volumeLabel: 'Quantity',
   },
 };
 

@@ -80,7 +80,7 @@ export default function SupplierDashboard() {
       setLocations(locationsData);
     } catch (loadError) {
       console.error('Failed to load supplier data:', loadError);
-      setError('Impossible de charger vos donnees.');
+      setError(t[lang].errLoadData);
     } finally {
       setLoading(false);
     }
@@ -113,12 +113,12 @@ export default function SupplierDashboard() {
     setResolvedLocation(inferredLocation);
 
     if (!inferredLocation) {
-      setError('Aucun site ne correspond aux 5 premiers chiffres de ce numero de commande.');
+      setError(tr.errNoSite);
       return;
     }
 
     if (bookingForm.volume <= 0) {
-      setError('Indiquez un volume valide.');
+      setError(tr.errInvalidVolume);
       return;
     }
 
@@ -134,10 +134,10 @@ export default function SupplierDashboard() {
       });
       setAvailableSlots(data || []);
       if (!data || data.length === 0) {
-        setMessage('Aucun creneau disponible pour le moment.');
+        setMessage(tr.noSlotsAvailable);
       }
     } catch (slotError: any) {
-      setError(slotError.response?.data?.error || 'Impossible de calculer les creneaux.');
+      setError(slotError.response?.data?.error || tr.errNoSlots);
       setAvailableSlots([]);
     } finally {
       setFindingSlots(false);
@@ -149,12 +149,12 @@ export default function SupplierDashboard() {
     setMessage('');
 
     if (!selectedSlot) {
-      setError('Selectionnez un creneau propose.');
+      setError(tr.errNoSlot);
       return;
     }
 
     if (!bookingForm.orderNumber.trim()) {
-      setError('Le numero de commande est obligatoire.');
+      setError(tr.errNoOrderNumber);
       return;
     }
 
@@ -171,7 +171,7 @@ export default function SupplierDashboard() {
 
       if (deliveryNoteFile) {
         if (deliveryNoteFile.size > 5 * 1024 * 1024) {
-          setError('Le fichier BL dépasse 5MB. Le rendez-vous a bien été créé sans fichier.');
+          setError(tr.errBlTooBig);
         } else {
           try {
             const base64Content = await fileToBase64(deliveryNoteFile);
@@ -181,12 +181,12 @@ export default function SupplierDashboard() {
               base64Content,
             });
           } catch (uploadError: any) {
-            setError(uploadError.response?.data?.error || 'Rendez-vous créé, mais upload du BL impossible.');
+            setError(uploadError.response?.data?.error || tr.errBlUpload);
           }
         }
       }
 
-      setMessage('Rendez-vous cree avec succes.');
+      setMessage(tr.successAppt);
       setAvailableSlots([]);
       setSelectedSlot(null);
       setResolvedLocation(null);
@@ -194,7 +194,7 @@ export default function SupplierDashboard() {
       setBookingForm((prev) => ({ ...prev, orderNumber: '' }));
       await fetchAppointments();
     } catch (saveError: any) {
-      setError(saveError.response?.data?.error || 'Creation du rendez-vous impossible.');
+      setError(saveError.response?.data?.error || tr.errCreateAppt);
     } finally {
       setSaving(false);
     }
@@ -245,7 +245,7 @@ export default function SupplierDashboard() {
 
       <main className="max-w-7xl mx-auto p-4 space-y-6">
         {loading ? (
-          <div className="text-center py-12">Chargement...</div>
+          <div className="text-center py-12">{tr.loading}</div>
         ) : (
           <>
             <section className="bg-white rounded-xl shadow p-5 space-y-4">
@@ -293,6 +293,7 @@ export default function SupplierDashboard() {
                   className="rounded border p-2"
                   type="number"
                   min={1}
+                  placeholder={tr.volumeLabel}
                   value={bookingForm.volume}
                   onChange={(e) => setBookingForm((prev) => ({ ...prev, volume: Math.max(1, Number(e.target.value) || 1) }))}
                   required
