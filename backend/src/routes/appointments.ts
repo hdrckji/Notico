@@ -22,7 +22,7 @@ type QuayWithCapacity = {
   } | null;
 };
 
-const APPOINTMENT_STATUS_VALUES = ['SCHEDULED', 'DELIVERED', 'RESCHEDULED', 'NO_SHOW', 'CANCELLED'] as const;
+const APPOINTMENT_STATUS_VALUES = ['SCHEDULED', 'DELIVERED', 'RESCHEDULED', 'NO_SHOW'] as const;
 type AppointmentStatusValue = (typeof APPOINTMENT_STATUS_VALUES)[number];
 
 const appointmentWithHistoryInclude = {
