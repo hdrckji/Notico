@@ -403,30 +403,39 @@ export default function EmployeeDashboard() {
               required
             />
 
-            <input
-              className="rounded border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Bon de livraison (optionnel)"
-              value={createForm.deliveryNoteNumber}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, deliveryNoteNumber: e.target.value }))}
-            />
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-500">Numéro de bon de livraison (optionnel)</label>
+              <input
+                className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Ex: BL-2026-00123"
+                value={createForm.deliveryNoteNumber}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, deliveryNoteNumber: e.target.value }))}
+              />
+            </div>
 
-            <input
-              className="rounded border border-slate-300 px-3 py-2 text-sm"
-              type="number"
-              min={0}
-              placeholder="Palettes entrantes"
-              value={createForm.palletsReceived}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, palletsReceived: Math.max(0, Number(e.target.value) || 0) }))}
-            />
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes reçues (entrantes)</label>
+              <input
+                className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                type="number"
+                min={0}
+                placeholder="0"
+                value={createForm.palletsReceived}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, palletsReceived: Math.max(0, Number(e.target.value) || 0) }))}
+              />
+            </div>
 
-            <input
-              className="rounded border border-slate-300 px-3 py-2 text-sm"
-              type="number"
-              min={0}
-              placeholder="Palettes sortantes"
-              value={createForm.palletsReturned}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, palletsReturned: Math.max(0, Number(e.target.value) || 0) }))}
-            />
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-500">Palettes rendues (sortantes)</label>
+              <input
+                className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                type="number"
+                min={0}
+                placeholder="0"
+                value={createForm.palletsReturned}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, palletsReturned: Math.max(0, Number(e.target.value) || 0) }))}
+              />
+            </div>
 
             <button
               type="submit"
