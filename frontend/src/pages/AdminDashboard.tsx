@@ -148,6 +148,7 @@ export default function AdminDashboard() {
     deliveryType: 'PALLET' as 'PALLET' | 'PARCEL',
     scheduledDate: '',
     locationId: '',
+    quayId: '',
     status: 'SCHEDULED' as AppointmentStatus,
   });
 
@@ -200,6 +201,10 @@ export default function AdminDashboard() {
   const assignmentQuays = useMemo(
     () => allQuays.filter((quay) => !assignmentForm.locationId || quay.locationId === assignmentForm.locationId),
     [allQuays, assignmentForm.locationId]
+  );
+  const appointmentQuays = useMemo(
+    () => allQuays.filter((quay) => !appointmentForm.locationId || quay.locationId === appointmentForm.locationId),
+    [allQuays, appointmentForm.locationId]
   );
   const supplierReliability = useMemo<SupplierReliabilityRow[]>(() => {
     const bySupplier = new Map<string, SupplierReliabilityRow>();
@@ -434,7 +439,7 @@ export default function AdminDashboard() {
     try {
       await client.post('/appointments', appointmentForm);
       setMessage('Rendez-vous cree avec succes.');
-      setAppointmentForm({ supplierId: '', orderNumber: '', volume: 1, deliveryType: 'PALLET', scheduledDate: '', locationId: '', status: 'SCHEDULED' });
+      setAppointmentForm({ supplierId: '', orderNumber: '', volume: 1, deliveryType: 'PALLET', scheduledDate: '', locationId: '', quayId: '', status: 'SCHEDULED' });
       await loadData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Creation impossible.');
@@ -1294,9 +1299,13 @@ export default function AdminDashboard() {
                     <option value="PARCEL">Colis</option>
                   </select>
                   <input className="rounded border p-2" type="datetime-local" required value={appointmentForm.scheduledDate} onChange={(e) => setAppointmentForm((prev) => ({ ...prev, scheduledDate: e.target.value }))} />
-                  <select className="rounded border p-2 sm:col-span-2" value={appointmentForm.locationId} onChange={(e) => setAppointmentForm((prev) => ({ ...prev, locationId: e.target.value }))}>
-                    <option value="">Site (optionnel)</option>
+                  <select className="rounded border p-2 sm:col-span-2" required value={appointmentForm.locationId} onChange={(e) => setAppointmentForm((prev) => ({ ...prev, locationId: e.target.value, quayId: '' }))}>
+                    <option value="">Selectionner un site</option>
                     {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                  <select className="rounded border p-2 sm:col-span-2" required value={appointmentForm.quayId} onChange={(e) => setAppointmentForm((prev) => ({ ...prev, quayId: e.target.value }))}>
+                    <option value="">Selectionner un quai</option>
+                    {appointmentQuays.map((q) => <option key={q.id} value={q.id}>{q.name} · {q.locationName}</option>)}
                   </select>
                   <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 sm:col-span-2">Créer rendez-vous</button>
                 </form>
