@@ -40,8 +40,7 @@ export default function SupplierDashboard() {
   const [loading, setLoading] = useState(true);
   const [findingSlots, setFindingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const [pendingFiles, setPendingFiles] = useState<Record<string, File | null>>({});
+  const [deliveryNoteFile, setDeliveryNoteFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [resolvedLocation, setResolvedLocation] = useState<DeliveryLocation | null>(null);
@@ -152,7 +151,7 @@ export default function SupplierDashboard() {
 
     try {
       setSaving(true);
-      await client.post('/appointments', {
+      const createResponse = await client.post('/appointments', {
         orderNumber: bookingForm.orderNumber.trim(),
         volume: bookingForm.volume,
         deliveryType: bookingForm.deliveryType,
@@ -161,10 +160,28 @@ export default function SupplierDashboard() {
         scheduledDate: selectedSlot.scheduledDate,
       });
 
+      if (deliveryNoteFile) {
+        if (deliveryNoteFile.size > 5 * 1024 * 1024) {
+          setError('Le fichier BL dépasse 5MB. Le rendez-vous a bien été créé sans fichier.');
+        } else {
+          try {
+            const base64Content = await fileToBase64(deliveryNoteFile);
+            await client.patch(`/appointments/${createResponse.data.id}/delivery-note`, {
+              fileName: deliveryNoteFile.name,
+              mimeType: deliveryNoteFile.type || 'application/octet-stream',
+              base64Content,
+            });
+          } catch (uploadError: any) {
+            setError(uploadError.response?.data?.error || 'Rendez-vous créé, mais upload du BL impossible.');
+          }
+        }
+      }
+
       setMessage('Rendez-vous cree avec succes.');
       setAvailableSlots([]);
       setSelectedSlot(null);
       setResolvedLocation(null);
+      setDeliveryNoteFile(null);
       setBookingForm((prev) => ({ ...prev, orderNumber: '' }));
       await fetchAppointments();
     } catch (saveError: any) {
@@ -189,40 +206,6 @@ export default function SupplierDashboard() {
     reader.onerror = () => reject(new Error('Lecture du fichier impossible.'));
     reader.readAsDataURL(file);
   });
-
-  const handleUploadDeliveryNote = async (appointmentId: string) => {
-    const file = pendingFiles[appointmentId];
-    if (!file) {
-      setError('Veuillez sélectionner un fichier BL avant envoi.');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Le fichier dépasse 5MB.');
-      return;
-    }
-
-    try {
-      setUploadingId(appointmentId);
-      setError('');
-      setMessage('');
-
-      const base64Content = await fileToBase64(file);
-      await client.patch(`/appointments/${appointmentId}/delivery-note`, {
-        fileName: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        base64Content,
-      });
-
-      setMessage('Bon de livraison ajouté au rendez-vous.');
-      setPendingFiles((prev) => ({ ...prev, [appointmentId]: null }));
-      await fetchAppointments();
-    } catch (uploadError: any) {
-      setError(uploadError.response?.data?.error || 'Upload du bon de livraison impossible.');
-    } finally {
-      setUploadingId(null);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -292,6 +275,19 @@ export default function SupplierDashboard() {
                   onChange={(e) => setBookingForm((prev) => ({ ...prev, volume: Math.max(1, Number(e.target.value) || 1) }))}
                   required
                 />
+
+                <div className="sm:col-span-2 lg:col-span-4 rounded border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Bon de livraison (optionnel)</p>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    className="text-sm"
+                    onChange={(e) => setDeliveryNoteFile(e.target.files?.[0] || null)}
+                  />
+                  {deliveryNoteFile && (
+                    <p className="mt-1 text-xs text-slate-600">Fichier sélectionné: {deliveryNoteFile.name}</p>
+                  )}
+                </div>
 
                 <button
                   type="submit"
@@ -368,26 +364,6 @@ export default function SupplierDashboard() {
                       ) : (
                         <p className="text-gray-500 text-sm">Aucun fichier BL lié.</p>
                       )}
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.webp"
-                          className="text-sm"
-                          onChange={(e) => {
-                            const next = e.target.files?.[0] || null;
-                            setPendingFiles((prev) => ({ ...prev, [apt.id]: next }));
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleUploadDeliveryNote(apt.id)}
-                          disabled={uploadingId === apt.id}
-                          className="rounded border border-slate-300 px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-                        >
-                          {uploadingId === apt.id ? 'Envoi...' : (apt.deliveryNoteFileName ? 'Remplacer BL' : 'Ajouter BL')}
-                        </button>
-                      </div>
 
                       <span className={`inline-block mt-2 px-3 py-1 rounded text-sm font-medium ${
                         apt.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
