@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { startAutoCancelUndeliveredJob } from './services/appointmentAutoCancel';
 import { normalizeCancelledStatusesToNoShow } from './services/normalizeAppointmentStatuses';
+import { ensurePerformanceIndexes } from './services/ensureIndexes';
 
 // Load environment variables
 dotenv.config();
@@ -59,6 +60,12 @@ const server = app.listen(PORT, HOST, () => {
   stopAutoCancelJob = startAutoCancelUndeliveredJob();
 
   setImmediate(async () => {
+    try {
+      await ensurePerformanceIndexes();
+    } catch (error) {
+      console.error('[indexes] Echec initialisation des index de performance:', error);
+    }
+
     try {
       const normalized = await normalizeCancelledStatusesToNoShow();
       if (normalized.appointments || normalized.historyToStatus || normalized.historyFromStatus) {

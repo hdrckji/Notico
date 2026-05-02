@@ -173,6 +173,8 @@ model Appointment {
   @@index([supplierId])
   @@index([scheduledDate])
   @@index([locationId])
+  @@index([quayId, scheduledDate])
+  @@index([status, scheduledDate])
   @@map("appointments")
 }
 
