@@ -120,6 +120,7 @@ export default function EmployeeDashboard() {
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
   const [deliveryValidation, setDeliveryValidation] = useState({
@@ -152,12 +153,13 @@ export default function EmployeeDashboard() {
     return location?.quays || [];
   }, [visibleLocations, createForm.locationId]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (sinceAll = false) => {
     setLoading(true);
     setError('');
     try {
+      const since = sinceAll ? '?since=all' : '';
       const [appointmentsResponse, suppliersResponse, locationsResponse] = await Promise.all([
-        client.get('/appointments'),
+        client.get(`/appointments${since}`),
         client.get('/suppliers'),
         client.get('/locations'),
       ]);
@@ -202,15 +204,29 @@ export default function EmployeeDashboard() {
     }
   };
 
-  const openDeliveredValidation = (appt: Appointment) => {
-    const defaultReceived = appt.palletsReceived ?? 0;
-    const defaultReturned = appt.palletsReturned ?? 0;
+  const openDeliveredValidation = async (appt: Appointment) => {
+    // Pre-fill from list data immediately so modal opens fast
     setDeliveryValidation({
       deliveryNoteNumber: appt.deliveryNoteNumber || '',
-      palletsReceived: defaultReceived,
-      palletsReturned: defaultReturned,
+      palletsReceived: appt.palletsReceived ?? 0,
+      palletsReturned: appt.palletsReturned ?? 0,
     });
     setSelectedAppt(appt);
+    // Then fetch full detail (status history + BL file) in background
+    setLoadingDetail(true);
+    try {
+      const res = await client.get(`/appointments/${appt.id}`);
+      setSelectedAppt(res.data);
+      setDeliveryValidation({
+        deliveryNoteNumber: res.data.deliveryNoteNumber || '',
+        palletsReceived: res.data.palletsReceived ?? 0,
+        palletsReturned: res.data.palletsReturned ?? 0,
+      });
+    } catch {
+      // keep light data already shown
+    } finally {
+      setLoadingDetail(false);
+    }
   };
 
   const submitDeliveredValidation = async () => {
@@ -465,9 +481,9 @@ export default function EmployeeDashboard() {
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-300 bg-white p-3">
           <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm font-semibold">
-            <button onClick={() => setView('week')} className={`px-4 py-1.5 ${view === 'week' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Semaine</button>
-            <button onClick={() => setView('list')} className={`px-4 py-1.5 ${view === 'list' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Liste</button>
-            <button onClick={() => setView('history')} className={`px-4 py-1.5 ${view === 'history' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Historique</button>
+            <button onClick={() => { setView('week'); loadDashboardData(false); }} className={`px-4 py-1.5 ${view === 'week' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Semaine</button>
+            <button onClick={() => { setView('list'); loadDashboardData(false); }} className={`px-4 py-1.5 ${view === 'list' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Liste</button>
+            <button onClick={() => { setView('history'); loadDashboardData(true); }} className={`px-4 py-1.5 ${view === 'history' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Historique</button>
           </div>
 
           {view === 'week' && (
@@ -490,7 +506,7 @@ export default function EmployeeDashboard() {
             </select>
           )}
 
-          <button onClick={loadDashboardData} className="ml-auto rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+          <button onClick={() => loadDashboardData(view === 'history')} className="ml-auto rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">
             ↻ Rafraîchir
           </button>
         </div>
@@ -653,6 +669,9 @@ export default function EmployeeDashboard() {
                     ))}
                   </div>
                 </div>
+              )}
+              {loadingDetail && !selectedAppt.statusHistory && (
+                <p className="text-xs text-slate-400">Chargement de l'historique...</p>
               )}
               <p>
                 <span className="font-semibold">Statut :</span>{' '}

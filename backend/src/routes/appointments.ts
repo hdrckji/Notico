@@ -25,6 +25,7 @@ type QuayWithCapacity = {
 const APPOINTMENT_STATUS_VALUES = ['SCHEDULED', 'DELIVERED', 'RESCHEDULED', 'NO_SHOW'] as const;
 type AppointmentStatusValue = (typeof APPOINTMENT_STATUS_VALUES)[number];
 
+// Full include for single-record responses (detail / after mutation)
 const appointmentWithHistoryInclude = {
   location: true,
   supplier: true,
@@ -44,6 +45,15 @@ const appointmentWithHistoryInclude = {
     },
   },
 };
+
+// Lightweight include for list responses (no base64 BL file, no status history)
+const appointmentListInclude = {
+  location: { select: { id: true, name: true } },
+  supplier: { select: { id: true, name: true, phone: true } },
+  quay: { select: { id: true, name: true } },
+};
+
+const APPOINTMENT_LIST_WINDOW_DAYS = 90;
 
 const isAppointmentStatus = (value: string): value is AppointmentStatusValue => {
   return APPOINTMENT_STATUS_VALUES.includes(value as AppointmentStatusValue);
@@ -445,12 +455,19 @@ router.get('/available-slots', authMiddleware, requireRole('SUPPLIER', 'ADMIN'),
 // Get appointments (filtered by role)
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
+    // Default window: 90 days ago → future. Pass ?since=all to remove the date filter.
+    const sinceParam = req.query.since as string | undefined;
+    const dateFilter: any = sinceParam === 'all'
+      ? {}
+      : { scheduledDate: { gte: new Date(Date.now() - APPOINTMENT_LIST_WINDOW_DAYS * 24 * 60 * 60 * 1000) } };
+
     let appointments;
 
     if (req.user?.role === 'SUPPLIER') {
       appointments = await prisma.appointment.findMany({
-        where: { supplierId: req.user.id },
-        include: appointmentWithHistoryInclude,
+        where: { supplierId: req.user.id, ...dateFilter },
+        omit: { deliveryNoteFileBase64: true },
+        include: appointmentListInclude,
         orderBy: { scheduledDate: 'desc' },
       });
     } else if (req.user?.role === 'EMPLOYEE') {
@@ -459,20 +476,23 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         where: { userId: req.user.id },
         select: { quayId: true },
       });
-      let where: any = {};
+      let where: any = { ...dateFilter };
       if (userAccess.length > 0) {
-        where = { quayId: { in: userAccess.map((ua) => ua.quayId) } };
+        where.quayId = { in: userAccess.map((ua) => ua.quayId) };
       } else if (req.user.locationId) {
-        where = { locationId: req.user.locationId };
+        where.locationId = req.user.locationId;
       }
       appointments = await prisma.appointment.findMany({
         where,
-        include: appointmentWithHistoryInclude,
+        omit: { deliveryNoteFileBase64: true },
+        include: appointmentListInclude,
         orderBy: { scheduledDate: 'desc' },
       });
     } else {
       appointments = await prisma.appointment.findMany({
-        include: appointmentWithHistoryInclude,
+        where: dateFilter,
+        omit: { deliveryNoteFileBase64: true },
+        include: appointmentListInclude,
         orderBy: { scheduledDate: 'desc' },
       });
     }
@@ -480,6 +500,29 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     res.json(appointments);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch appointments' });
+  }
+});
+
+// Get single appointment with full detail (status history + BL file)
+router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: req.params.id },
+      include: appointmentWithHistoryInclude,
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    // Suppliers can only see their own appointments
+    if (req.user?.role === 'SUPPLIER' && appointment.supplierId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json(appointment);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch appointment' });
   }
 });
 
