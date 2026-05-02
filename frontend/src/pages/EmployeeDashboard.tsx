@@ -540,6 +540,7 @@ export default function EmployeeDashboard() {
                           >
                             <p className="font-bold truncate">{appt.supplier?.name || '—'}</p>
                             <p className="truncate opacity-75">{appt.orderNumber}</p>
+                            <p className="truncate font-semibold opacity-90">{STATUS_LABELS[appt.status]}</p>
                           </button>
                         ))}
                       </div>
