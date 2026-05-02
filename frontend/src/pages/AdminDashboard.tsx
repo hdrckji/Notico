@@ -151,7 +151,7 @@ function DeliveryDaysCheckboxes({ value, onChange }: { value: string; onChange: 
             checked={selected.includes(day)}
             onChange={() => toggle(day)}
           />
-          <span className="text-sm font-semibold">{DELIVERY_DAY_LABELS[day]}</span>
+          <span className="text-sm font-semibold" translate="no">{DELIVERY_DAY_LABELS[day]}</span>
         </label>
       ))}
     </div>
@@ -1127,7 +1127,7 @@ export default function AdminDashboard() {
                       <p className="text-slate-600">{location.address}, {location.city} {location.postalCode}</p>
                       <p className="text-slate-500 text-xs">Prefixe commande: {location.orderPrefix || 'Non defini'}</p>
                       <p className="text-slate-500 text-xs">
-                        Livraisons: {parseDeliveryDays(location.deliveryDays).map((d) => DELIVERY_DAY_LABELS[d]).join(', ') || 'Aucun jour défini'}
+                        Livraisons: <span translate="no">{parseDeliveryDays(location.deliveryDays).map((d) => DELIVERY_DAY_LABELS[d]).join(', ') || 'Aucun jour défini'}</span>
                       </p>
                       <p className="text-slate-400 text-xs">{location.quays.length} quai(s)</p>
                     </div>
