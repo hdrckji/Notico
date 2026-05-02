@@ -60,6 +60,8 @@ const parseOptionalNonNegativeInt = (value: unknown) => {
   return parsed;
 };
 
+const MAX_DELIVERY_NOTE_BASE64_LENGTH = 7_000_000;
+
 const auditStatusChange = async (
   tx: any,
   appointmentId: string,
@@ -521,6 +523,46 @@ router.get('/pallet-balances', authMiddleware, requireRole('EMPLOYEE', 'ADMIN'),
     res.json(Array.from(balances.values()).sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch pallet balances' });
+  }
+});
+
+// Attach delivery note file to an appointment
+router.patch('/:id/delivery-note', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), async (req: Request, res: Response) => {
+  try {
+    const fileName = String(req.body.fileName || '').trim();
+    const mimeType = String(req.body.mimeType || '').trim();
+    const base64Content = String(req.body.base64Content || '').trim();
+
+    if (!fileName || !mimeType || !base64Content) {
+      return res.status(400).json({ error: 'Le nom de fichier, le type MIME et le contenu sont obligatoires.' });
+    }
+
+    if (base64Content.length > MAX_DELIVERY_NOTE_BASE64_LENGTH) {
+      return res.status(413).json({ error: 'Fichier trop volumineux. Limite: 5MB.' });
+    }
+
+    const appointment = await prisma.appointment.findUnique({ where: { id: req.params.id } });
+    if (!appointment) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    if (req.user?.role === 'SUPPLIER' && appointment.supplierId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id: req.params.id },
+      data: {
+        deliveryNoteFileName: fileName,
+        deliveryNoteFileMimeType: mimeType,
+        deliveryNoteFileBase64: base64Content,
+      },
+      include: appointmentWithHistoryInclude,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to upload delivery note file' });
   }
 });
 

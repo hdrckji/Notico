@@ -153,6 +153,9 @@ model Appointment {
   volume            Int
   deliveryType      DeliveryType
   deliveryNoteNumber String?
+  deliveryNoteFileName String?
+  deliveryNoteFileMimeType String?
+  deliveryNoteFileBase64 String?
   palletsReceived   Int?
   palletsReturned   Int?
   scheduledDate     DateTime

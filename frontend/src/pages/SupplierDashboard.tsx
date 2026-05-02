@@ -7,6 +7,9 @@ interface Appointment {
   orderNumber: string;
   volume: number;
   deliveryType: 'PALLET' | 'PARCEL';
+  deliveryNoteFileName?: string | null;
+  deliveryNoteFileMimeType?: string | null;
+  deliveryNoteFileBase64?: string | null;
   scheduledDate: string;
   status: string;
   location?: { name: string };
@@ -37,6 +40,8 @@ export default function SupplierDashboard() {
   const [loading, setLoading] = useState(true);
   const [findingSlots, setFindingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File | null>>({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [resolvedLocation, setResolvedLocation] = useState<DeliveryLocation | null>(null);
@@ -166,6 +171,56 @@ export default function SupplierDashboard() {
       setError(saveError.response?.data?.error || 'Creation du rendez-vous impossible.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const marker = 'base64,';
+      const idx = result.indexOf(marker);
+      if (idx === -1) {
+        reject(new Error('Format de fichier invalide.'));
+        return;
+      }
+      resolve(result.slice(idx + marker.length));
+    };
+    reader.onerror = () => reject(new Error('Lecture du fichier impossible.'));
+    reader.readAsDataURL(file);
+  });
+
+  const handleUploadDeliveryNote = async (appointmentId: string) => {
+    const file = pendingFiles[appointmentId];
+    if (!file) {
+      setError('Veuillez sélectionner un fichier BL avant envoi.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Le fichier dépasse 5MB.');
+      return;
+    }
+
+    try {
+      setUploadingId(appointmentId);
+      setError('');
+      setMessage('');
+
+      const base64Content = await fileToBase64(file);
+      await client.patch(`/appointments/${appointmentId}/delivery-note`, {
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        base64Content,
+      });
+
+      setMessage('Bon de livraison ajouté au rendez-vous.');
+      setPendingFiles((prev) => ({ ...prev, [appointmentId]: null }));
+      await fetchAppointments();
+    } catch (uploadError: any) {
+      setError(uploadError.response?.data?.error || 'Upload du bon de livraison impossible.');
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -299,6 +354,41 @@ export default function SupplierDashboard() {
                       <p className="text-gray-600">Site: {apt.location?.name || '-'}</p>
                       <p className="text-gray-600">Quai: {apt.quay?.name || '-'}</p>
                       <p className="text-gray-600">Date: {new Date(apt.scheduledDate).toLocaleString('fr-BE')}</p>
+                      {apt.deliveryNoteFileName ? (
+                        <p className="text-gray-600">
+                          BL fichier:{' '}
+                          <a
+                            className="text-blue-700 underline"
+                            href={`data:${apt.deliveryNoteFileMimeType || 'application/octet-stream'};base64,${apt.deliveryNoteFileBase64 || ''}`}
+                            download={apt.deliveryNoteFileName}
+                          >
+                            {apt.deliveryNoteFileName}
+                          </a>
+                        </p>
+                      ) : (
+                        <p className="text-gray-500 text-sm">Aucun fichier BL lié.</p>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.webp"
+                          className="text-sm"
+                          onChange={(e) => {
+                            const next = e.target.files?.[0] || null;
+                            setPendingFiles((prev) => ({ ...prev, [apt.id]: next }));
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleUploadDeliveryNote(apt.id)}
+                          disabled={uploadingId === apt.id}
+                          className="rounded border border-slate-300 px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                        >
+                          {uploadingId === apt.id ? 'Envoi...' : (apt.deliveryNoteFileName ? 'Remplacer BL' : 'Ajouter BL')}
+                        </button>
+                      </div>
+
                       <span className={`inline-block mt-2 px-3 py-1 rounded text-sm font-medium ${
                         apt.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
                         apt.status === 'NO_SHOW' ? 'bg-red-100 text-red-800' :
