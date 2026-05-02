@@ -47,7 +47,24 @@ const appointmentWithHistoryInclude = {
 };
 
 // Lightweight include for list responses (no base64 BL file, no status history)
-const appointmentListInclude = {
+const appointmentListSelect = {
+  id: true,
+  supplierId: true,
+  orderNumber: true,
+  volume: true,
+  deliveryType: true,
+  deliveryNoteNumber: true,
+  deliveryNoteFileName: true,
+  deliveryNoteFileMimeType: true,
+  palletsReceived: true,
+  palletsReturned: true,
+  scheduledDate: true,
+  locationId: true,
+  quayId: true,
+  createdByRole: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
   location: { select: { id: true, name: true } },
   supplier: { select: { id: true, name: true, phone: true } },
   quay: { select: { id: true, name: true } },
@@ -466,8 +483,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     if (req.user?.role === 'SUPPLIER') {
       appointments = await prisma.appointment.findMany({
         where: { supplierId: req.user.id, ...dateFilter },
-        omit: { deliveryNoteFileBase64: true },
-        include: appointmentListInclude,
+        select: appointmentListSelect,
         orderBy: { scheduledDate: 'desc' },
       });
     } else if (req.user?.role === 'EMPLOYEE') {
@@ -484,15 +500,13 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       }
       appointments = await prisma.appointment.findMany({
         where,
-        omit: { deliveryNoteFileBase64: true },
-        include: appointmentListInclude,
+        select: appointmentListSelect,
         orderBy: { scheduledDate: 'desc' },
       });
     } else {
       appointments = await prisma.appointment.findMany({
         where: dateFilter,
-        omit: { deliveryNoteFileBase64: true },
-        include: appointmentListInclude,
+        select: appointmentListSelect,
         orderBy: { scheduledDate: 'desc' },
       });
     }
