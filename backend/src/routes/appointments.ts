@@ -287,6 +287,14 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
       quayId = selected.quayId;
     }
 
+    const isEmployeeCreation = req.user!.role === 'EMPLOYEE';
+    const creationStatus = isEmployeeCreation ? 'DELIVERED' : 'SCHEDULED';
+    const deliveryNoteNumber = isEmployeeCreation && typeof req.body.deliveryNoteNumber === 'string'
+      ? req.body.deliveryNoteNumber.trim() || null
+      : null;
+    const palletsReceived = isEmployeeCreation ? (Number(req.body.palletsReceived) >= 0 ? Math.floor(Number(req.body.palletsReceived)) : null) : null;
+    const palletsReturned = isEmployeeCreation ? (Number(req.body.palletsReturned) >= 0 ? Math.floor(Number(req.body.palletsReturned)) : null) : null;
+
     const appointment = await prisma.$transaction(async (tx) => {
       const created = await tx.appointment.create({
         data: {
@@ -298,6 +306,12 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
           locationId,
           quayId,
           createdByRole: req.user!.role,
+          status: creationStatus,
+          ...(isEmployeeCreation ? {
+            deliveryNoteNumber,
+            palletsReceived: palletsReceived ?? undefined,
+            palletsReturned: palletsReturned ?? undefined,
+          } : {}),
         },
       });
 
@@ -305,7 +319,7 @@ router.post('/', authMiddleware, requireRole('SUPPLIER', 'ADMIN', 'EMPLOYEE'), a
         tx,
         created.id,
         null,
-        'SCHEDULED',
+        creationStatus,
         req.user!.role,
         req.user!.id
       );

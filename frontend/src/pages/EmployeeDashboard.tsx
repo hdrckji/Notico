@@ -133,6 +133,9 @@ export default function EmployeeDashboard() {
     locationId: user?.locationId || '',
     quayId: '',
     scheduledDate: new Date().toISOString().slice(0, 16),
+    deliveryNoteNumber: '',
+    palletsReceived: 0,
+    palletsReturned: 0,
   });
 
   const visibleLocations = useMemo(() => {
@@ -249,6 +252,10 @@ export default function EmployeeDashboard() {
         locationId: createForm.locationId,
         quayId: createForm.quayId,
         scheduledDate: new Date(createForm.scheduledDate).toISOString(),
+        status: 'DELIVERED',
+        deliveryNoteNumber: createForm.deliveryNoteNumber.trim() || null,
+        palletsReceived: Math.max(0, Number(createForm.palletsReceived) || 0),
+        palletsReturned: Math.max(0, Number(createForm.palletsReturned) || 0),
       });
 
       setMessage('Livraison non planifiee ajoutee avec succes.');
@@ -260,6 +267,9 @@ export default function EmployeeDashboard() {
         locationId: user?.locationId || visibleLocations[0]?.id || '',
         quayId: '',
         scheduledDate: new Date().toISOString().slice(0, 16),
+        deliveryNoteNumber: '',
+        palletsReceived: 0,
+        palletsReturned: 0,
       });
       await loadDashboardData();
     } catch (err: any) {
@@ -388,6 +398,31 @@ export default function EmployeeDashboard() {
               value={createForm.scheduledDate}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, scheduledDate: e.target.value }))}
               required
+            />
+
+            <input
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Bon de livraison (optionnel)"
+              value={createForm.deliveryNoteNumber}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, deliveryNoteNumber: e.target.value }))}
+            />
+
+            <input
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              type="number"
+              min={0}
+              placeholder="Palettes entrantes"
+              value={createForm.palletsReceived}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, palletsReceived: Math.max(0, Number(e.target.value) || 0) }))}
+            />
+
+            <input
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+              type="number"
+              min={0}
+              placeholder="Palettes sortantes"
+              value={createForm.palletsReturned}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, palletsReturned: Math.max(0, Number(e.target.value) || 0) }))}
             />
 
             <button
