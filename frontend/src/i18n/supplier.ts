@@ -50,7 +50,7 @@ export const t: Record<Lang, Record<string, string>> = {
     status_DELIVERED: 'Livré',
     status_RESCHEDULED: 'Reprogrammé',
     status_NO_SHOW: 'Absent',
-    status_CANCELLED: 'Annulé',
+    status_CANCELLED: 'Absent',
     // Errors & misc
     loading: 'Chargement...',
     errLoadData: 'Impossible de charger vos données.',
@@ -108,7 +108,7 @@ export const t: Record<Lang, Record<string, string>> = {
     status_DELIVERED: 'Geleverd',
     status_RESCHEDULED: 'Herpland',
     status_NO_SHOW: 'Niet aanwezig',
-    status_CANCELLED: 'Geannuleerd',
+    status_CANCELLED: 'Niet aanwezig',
     // Errors & misc
     loading: 'Laden...',
     errLoadData: 'Kan uw gegevens niet laden.',
@@ -166,7 +166,7 @@ export const t: Record<Lang, Record<string, string>> = {
     status_DELIVERED: 'Delivered',
     status_RESCHEDULED: 'Rescheduled',
     status_NO_SHOW: 'No show',
-    status_CANCELLED: 'Cancelled',
+    status_CANCELLED: 'No show',
     // Errors & misc
     loading: 'Loading...',
     errLoadData: 'Unable to load your data.',

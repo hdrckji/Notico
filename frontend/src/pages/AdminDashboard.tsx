@@ -1311,7 +1311,6 @@ export default function AdminDashboard() {
                         <option value="DELIVERED">Livre</option>
                         <option value="RESCHEDULED">Reporte</option>
                         <option value="NO_SHOW">Absent</option>
-                        <option value="CANCELLED">Annule</option>
                       </select>
                       <div className="flex gap-2 sm:col-span-2">
                         <button type="submit" className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Enregistrer</button>

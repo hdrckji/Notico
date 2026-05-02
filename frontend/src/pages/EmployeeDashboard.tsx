@@ -57,7 +57,7 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
   DELIVERED: 'Livré',
   RESCHEDULED: 'Reprogrammé',
   NO_SHOW: 'Absent',
-  CANCELLED: 'Annulé',
+  CANCELLED: 'Absent',
 };
 
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
@@ -65,7 +65,7 @@ const STATUS_COLORS: Record<AppointmentStatus, string> = {
   DELIVERED: 'bg-green-100 text-green-800 border-green-300',
   RESCHEDULED: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   NO_SHOW: 'bg-red-100 text-red-800 border-red-300',
-  CANCELLED: 'bg-gray-100 text-gray-500 border-gray-200',
+  CANCELLED: 'bg-red-100 text-red-800 border-red-300',
 };
 
 const EMPLOYEE_CREATED_CLASSES = 'bg-amber-100 text-amber-900 border-amber-400';
@@ -119,7 +119,6 @@ export default function EmployeeDashboard() {
   const [view, setView] = useState<ViewMode>('week');
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [showCancelled, setShowCancelled] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
@@ -284,10 +283,7 @@ export default function EmployeeDashboard() {
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
-  const visibleAppointments = useMemo(
-    () => showCancelled ? appointments : appointments.filter((a) => a.status !== 'CANCELLED'),
-    [appointments, showCancelled]
-  );
+  const visibleAppointments = useMemo(() => appointments, [appointments]);
 
   const apptsByDay = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
@@ -488,20 +484,11 @@ export default function EmployeeDashboard() {
           {(view === 'list' || view === 'history') && (
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm">
               <option value="ALL">Tous les statuts</option>
-              {(Object.keys(STATUS_LABELS) as AppointmentStatus[]).map((s) => (
+              {(['SCHEDULED', 'DELIVERED', 'RESCHEDULED', 'NO_SHOW'] as AppointmentStatus[]).map((s) => (
                 <option key={s} value={s}>{STATUS_LABELS[s]}</option>
               ))}
             </select>
           )}
-
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={showCancelled}
-              onChange={(e) => setShowCancelled(e.target.checked)}
-            />
-            Afficher les annulés
-          </label>
 
           <button onClick={loadDashboardData} className="ml-auto rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">
             ↻ Rafraîchir
@@ -719,7 +706,6 @@ export default function EmployeeDashboard() {
                 {selectedAppt.status === 'SCHEDULED' && (
                   <>
                     <button disabled={updatingId === selectedAppt.id} onClick={() => updateStatus(selectedAppt.id, 'NO_SHOW')} className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">✗ Absent</button>
-                    <button disabled={updatingId === selectedAppt.id} onClick={() => updateStatus(selectedAppt.id, 'CANCELLED')} className="w-full rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">Annuler</button>
                   </>
                 )}
               </div>
@@ -766,7 +752,6 @@ function AppointmentRow({
         {appt.status === 'SCHEDULED' && (
           <>
             <button disabled={updatingId === appt.id} onClick={() => onUpdate(appt.id, 'NO_SHOW')} className="rounded bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50">✗ Absent</button>
-            <button disabled={updatingId === appt.id} onClick={() => onUpdate(appt.id, 'CANCELLED')} className="rounded border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">Annuler</button>
           </>
         )}
       </div>

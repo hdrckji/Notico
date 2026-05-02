@@ -47,7 +47,7 @@ const getZonedNow = (timeZone: string): ZonedNow => {
   };
 };
 
-const cancelUndeliveredAppointmentsForDay = async (timeZone: string, dayKey: string) => {
+const markUndeliveredAppointmentsAsNoShowForDay = async (timeZone: string, dayKey: string) => {
   const targets = await prisma.$queryRaw<Array<{ id: string; status: ScheduledStatus }>>`
     SELECT "id", "status"
     FROM "appointments"
@@ -64,14 +64,14 @@ const cancelUndeliveredAppointmentsForDay = async (timeZone: string, dayKey: str
   await prisma.$transaction(async (tx) => {
     await tx.appointment.updateMany({
       where: { id: { in: appointmentIds } },
-      data: { status: 'CANCELLED' },
+      data: { status: 'NO_SHOW' },
     });
 
     await tx.appointmentStatusHistory.createMany({
       data: targets.map((target) => ({
         appointmentId: target.id,
         fromStatus: target.status,
-        toStatus: 'CANCELLED',
+        toStatus: 'NO_SHOW',
         changedByRole: 'ADMIN',
         changedByUserId: null,
       })),
@@ -101,13 +101,13 @@ export const startAutoCancelUndeliveredJob = () => {
 
     isRunning = true;
     try {
-      const cancelledCount = await cancelUndeliveredAppointmentsForDay(timeZone, now.dayKey);
+      const noShowCount = await markUndeliveredAppointmentsAsNoShowForDay(timeZone, now.dayKey);
       lastProcessedDay = now.dayKey;
       console.log(
-        `[auto-cancel] ${cancelledCount} rendez-vous annule(s) pour ${now.dayKey} a partir de ${String(cancelHour).padStart(2, '0')}:00 (${timeZone}).`
+        `[auto-no-show] ${noShowCount} rendez-vous passes en absent pour ${now.dayKey} a partir de ${String(cancelHour).padStart(2, '0')}:00 (${timeZone}).`
       );
     } catch (error) {
-      console.error('[auto-cancel] Echec de l annulation automatique des rendez-vous:', error);
+      console.error('[auto-no-show] Echec du passage automatique en absent des rendez-vous:', error);
     } finally {
       isRunning = false;
     }
@@ -120,7 +120,7 @@ export const startAutoCancelUndeliveredJob = () => {
   void runIfNeeded();
 
   console.log(
-    `[auto-cancel] Job active: annulation automatique a ${String(cancelHour).padStart(2, '0')}:00 (${timeZone}), verification chaque minute.`
+    `[auto-no-show] Job actif: passage automatique en absent a ${String(cancelHour).padStart(2, '0')}:00 (${timeZone}), verification chaque minute.`
   );
 
   return () => clearInterval(intervalId);
