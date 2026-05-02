@@ -144,7 +144,7 @@ function DeliveryDaysCheckboxes({ value, onChange }: { value: string; onChange: 
   return (
     <div className="flex flex-wrap gap-2">
       {DELIVERY_DAY_ORDER.map((day) => (
-        <label key={day} className="flex items-center gap-1 cursor-pointer select-none">
+        <label key={day} className="flex items-center gap-1 cursor-pointer select-none" translate="no">
           <input
             type="checkbox"
             className="accent-slate-900"
