@@ -1,0 +1,155 @@
+export type Lang = 'fr' | 'nl' | 'en';
+
+export const LANG_LABELS: Record<Lang, string> = {
+  fr: 'FR',
+  nl: 'NL',
+  en: 'EN',
+};
+
+export const t: Record<Lang, Record<string, string>> = {
+  fr: {
+    // Login
+    portalTitle: 'Portail Fournisseur',
+    portalSubtitle: 'Planifiez vos livraisons',
+    loginId: 'Identifiant',
+    loginPassword: 'Mot de passe',
+    loginButton: 'Se connecter',
+    loginLoading: 'Connexion...',
+    // Nav
+    supplierSpace: 'Espace fournisseur',
+    logout: 'Déconnexion',
+    // Booking form
+    deliveryRequestTitle: 'Demande de livraison',
+    deliveryRequestSubtitle: 'Indiquez le numéro de commande et le volume pour recevoir les prochains créneaux disponibles.',
+    orderNumber: 'Numéro de commande',
+    siteAuto: 'Site détecté automatiquement selon les 5 premiers chiffres du numéro de commande',
+    siteDetected: 'Site détecté automatiquement',
+    pallets: 'Palettes',
+    parcels: 'Colis',
+    blFileLabel: 'Bon de livraison (optionnel)',
+    selectedFile: 'Fichier sélectionné',
+    findSlots: 'Proposer les prochains créneaux',
+    findingSlots: 'Recherche en cours...',
+    proposedSlots: 'Créneaux proposés',
+    confirmSlot: 'Confirmer ce créneau',
+    confirming: 'Création...',
+    noSlotsAvailable: 'Aucun créneau disponible pour le moment.',
+    // My appointments
+    myAppointments: 'Mes rendez-vous',
+    noAppointments: 'Aucun rendez-vous pour le moment.',
+    order: 'Commande',
+    volume: 'Volume',
+    site: 'Site',
+    quay: 'Quai',
+    date: 'Date',
+    blFile: 'BL fichier',
+    noBlFile: 'Aucun fichier BL lié.',
+    palette: 'palette(s)',
+    parcel: 'colis',
+    status_SCHEDULED: 'Planifié',
+    status_DELIVERED: 'Livré',
+    status_RESCHEDULED: 'Reprogrammé',
+    status_NO_SHOW: 'Absent',
+    status_CANCELLED: 'Annulé',
+  },
+  nl: {
+    // Login
+    portalTitle: 'Leveranciersportaal',
+    portalSubtitle: 'Plan uw leveringen',
+    loginId: 'Gebruikersnaam',
+    loginPassword: 'Wachtwoord',
+    loginButton: 'Inloggen',
+    loginLoading: 'Bezig...',
+    // Nav
+    supplierSpace: 'Leverancierszone',
+    logout: 'Uitloggen',
+    // Booking form
+    deliveryRequestTitle: 'Leveringsaanvraag',
+    deliveryRequestSubtitle: 'Geef het bestelnummer en het volume op om de volgende beschikbare tijdslots te ontvangen.',
+    orderNumber: 'Bestelnummer',
+    siteAuto: 'Site automatisch gedetecteerd op basis van de eerste 5 cijfers van het bestelnummer',
+    siteDetected: 'Site automatisch gedetecteerd',
+    pallets: 'Pallets',
+    parcels: 'Colli',
+    blFileLabel: 'Leveringsbon (optioneel)',
+    selectedFile: 'Geselecteerd bestand',
+    findSlots: 'Volgende beschikbare tijdslots tonen',
+    findingSlots: 'Zoeken...',
+    proposedSlots: 'Voorgestelde tijdslots',
+    confirmSlot: 'Dit tijdslot bevestigen',
+    confirming: 'Bezig...',
+    noSlotsAvailable: 'Momenteel geen tijdslots beschikbaar.',
+    // My appointments
+    myAppointments: 'Mijn afspraken',
+    noAppointments: 'Nog geen afspraken.',
+    order: 'Bestelling',
+    volume: 'Volume',
+    site: 'Locatie',
+    quay: 'Kade',
+    date: 'Datum',
+    blFile: 'Leveringsbon',
+    noBlFile: 'Geen BL-bestand gekoppeld.',
+    palette: 'pallet(s)',
+    parcel: 'collo',
+    status_SCHEDULED: 'Gepland',
+    status_DELIVERED: 'Geleverd',
+    status_RESCHEDULED: 'Herpland',
+    status_NO_SHOW: 'Niet aanwezig',
+    status_CANCELLED: 'Geannuleerd',
+  },
+  en: {
+    // Login
+    portalTitle: 'Supplier Portal',
+    portalSubtitle: 'Schedule your deliveries',
+    loginId: 'Username',
+    loginPassword: 'Password',
+    loginButton: 'Sign in',
+    loginLoading: 'Signing in...',
+    // Nav
+    supplierSpace: 'Supplier area',
+    logout: 'Sign out',
+    // Booking form
+    deliveryRequestTitle: 'Delivery request',
+    deliveryRequestSubtitle: 'Enter the order number and volume to get the next available slots.',
+    orderNumber: 'Order number',
+    siteAuto: 'Site automatically detected from the first 5 digits of the order number',
+    siteDetected: 'Site automatically detected',
+    pallets: 'Pallets',
+    parcels: 'Parcels',
+    blFileLabel: 'Delivery note (optional)',
+    selectedFile: 'Selected file',
+    findSlots: 'Show next available slots',
+    findingSlots: 'Searching...',
+    proposedSlots: 'Proposed slots',
+    confirmSlot: 'Confirm this slot',
+    confirming: 'Creating...',
+    noSlotsAvailable: 'No slots available at the moment.',
+    // My appointments
+    myAppointments: 'My appointments',
+    noAppointments: 'No appointments yet.',
+    order: 'Order',
+    volume: 'Volume',
+    site: 'Site',
+    quay: 'Dock',
+    date: 'Date',
+    blFile: 'Delivery note file',
+    noBlFile: 'No delivery note file attached.',
+    palette: 'pallet(s)',
+    parcel: 'parcel(s)',
+    status_SCHEDULED: 'Scheduled',
+    status_DELIVERED: 'Delivered',
+    status_RESCHEDULED: 'Rescheduled',
+    status_NO_SHOW: 'No show',
+    status_CANCELLED: 'Cancelled',
+  },
+};
+
+export const getStoredLang = (): Lang => {
+  const stored = localStorage.getItem('supplierLang');
+  if (stored === 'fr' || stored === 'nl' || stored === 'en') return stored;
+  return 'fr';
+};
+
+export const setStoredLang = (lang: Lang) => {
+  localStorage.setItem('supplierLang', lang);
+};

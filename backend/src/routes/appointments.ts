@@ -371,6 +371,12 @@ router.get('/available-slots', authMiddleware, requireRole('SUPPLIER', 'ADMIN'),
       return res.status(404).json({ error: 'Location not found' });
     }
 
+    // Parse allowed delivery days (JS getDay(): 0=Sun, 1=Mon, ..., 6=Sat)
+    const allowedDays = (location.deliveryDays || '1,2,3,4,5')
+      .split(',')
+      .map((d: string) => parseInt(d.trim(), 10))
+      .filter((d: number) => !Number.isNaN(d));
+
     if (location.quays.length === 0) {
       return res.json([]);
     }
@@ -399,6 +405,10 @@ router.get('/available-slots', authMiddleware, requireRole('SUPPLIER', 'ADMIN'),
     for (let offset = 0; offset < AVAILABILITY_LOOKAHEAD_DAYS && slots.length < AVAILABILITY_SLOT_LIMIT; offset += 1) {
       const day = new Date(searchStart);
       day.setDate(searchStart.getDate() + offset);
+
+      // Skip days not allowed for this location
+      if (!allowedDays.includes(day.getDay())) continue;
+
       const dayKey = getDayKey(day);
 
       for (const quay of location.quays as QuayWithCapacity[]) {

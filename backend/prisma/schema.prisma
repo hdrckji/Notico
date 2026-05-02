@@ -74,6 +74,7 @@ model DeliveryLocation {
   address           String
   city              String
   postalCode        String
+  deliveryDays      String   @default("1,2,3,4,5")
   quays             Quay[]
   employees         InternalUser[]
   appointments      Appointment[]

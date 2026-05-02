@@ -328,13 +328,14 @@ router.post('/locations', authMiddleware, requireRole('ADMIN'), [
 
   try {
     const location = await prisma.deliveryLocation.create({
-      data: {
-        name: req.body.name,
-        address: req.body.address,
-        city: req.body.city,
-        postalCode: req.body.postalCode,
-      },
-    });
+        data: {
+          name: req.body.name,
+          address: req.body.address,
+          city: req.body.city,
+          postalCode: req.body.postalCode,
+          deliveryDays: req.body.deliveryDays || '1,2,3,4,5',
+        },
+      });
 
     await ensureLocationOrderPrefixRulesTable();
     await prisma.$executeRawUnsafe(
@@ -371,6 +372,7 @@ router.put('/locations/:id', authMiddleware, requireRole('ADMIN'), [
         address: req.body.address,
         city: req.body.city,
         postalCode: req.body.postalCode,
+        deliveryDays: req.body.deliveryDays || '1,2,3,4,5',
       },
     });
 

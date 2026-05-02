@@ -97,6 +97,7 @@ interface Location {
   city: string;
   postalCode: string;
   orderPrefix?: string | null;
+  deliveryDays?: string | null;
   quays: Quay[];
 }
 
@@ -122,6 +123,40 @@ const formatAppointmentAuditActor = (
 };
 
 const toDayKey = (value: string) => new Date(value).toLocaleDateString('fr-CA');
+
+// Jours de livraison : 0=Dim, 1=Lun, 2=Mar, 3=Mer, 4=Jeu, 5=Ven, 6=Sam
+const DELIVERY_DAY_LABELS: Record<number, string> = { 0: 'Dim', 1: 'Lun', 2: 'Mar', 3: 'Mer', 4: 'Jeu', 5: 'Ven', 6: 'Sam' };
+const DELIVERY_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun en premier
+
+const parseDeliveryDays = (raw?: string | null): number[] => {
+  if (!raw) return [1, 2, 3, 4, 5];
+  return raw.split(',').map((d) => parseInt(d.trim(), 10)).filter((d) => !Number.isNaN(d) && d >= 0 && d <= 6);
+};
+
+const formatDeliveryDays = (days: number[]): string => days.sort((a, b) => a - b).join(',');
+
+function DeliveryDaysCheckboxes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const selected = parseDeliveryDays(value);
+  const toggle = (day: number) => {
+    const next = selected.includes(day) ? selected.filter((d) => d !== day) : [...selected, day];
+    onChange(formatDeliveryDays(next));
+  };
+  return (
+    <div className="flex flex-wrap gap-2">
+      {DELIVERY_DAY_ORDER.map((day) => (
+        <label key={day} className="flex items-center gap-1 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="accent-slate-900"
+            checked={selected.includes(day)}
+            onChange={() => toggle(day)}
+          />
+          <span className="text-sm font-semibold">{DELIVERY_DAY_LABELS[day]}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const { logout, user } = useAuthStore();
@@ -181,6 +216,7 @@ export default function AdminDashboard() {
     city: '',
     postalCode: '',
     orderPrefix: '',
+    deliveryDays: '1,2,3,4,5',
   });
 
   const [quayForm, setQuayForm] = useState({
@@ -479,7 +515,7 @@ export default function AdminDashboard() {
     try {
       await client.post('/admin/locations', locationForm);
       setMessage('Site de livraison cree avec succes.');
-      setLocationForm({ name: '', address: '', city: '', postalCode: '', orderPrefix: '' });
+      setLocationForm({ name: '', address: '', city: '', postalCode: '', orderPrefix: '', deliveryDays: '1,2,3,4,5' });
       await loadData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Creation du site impossible.');
@@ -1043,6 +1079,13 @@ export default function AdminDashboard() {
                         value={editingLocation.orderPrefix || ''}
                         onChange={(e) => setEditingLocation((prev) => prev && ({ ...prev, orderPrefix: e.target.value }))}
                       />
+                      <div className="sm:col-span-2">
+                        <p className="mb-1 text-sm font-semibold text-slate-700">Jours de livraison autorisés</p>
+                        <DeliveryDaysCheckboxes
+                          value={editingLocation.deliveryDays || '1,2,3,4,5'}
+                          onChange={(v) => setEditingLocation((prev) => prev && ({ ...prev, deliveryDays: v }))}
+                        />
+                      </div>
                       <div className="flex gap-2 sm:col-span-2">
                         <button type="submit" className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Enregistrer</button>
                         <button type="button" onClick={() => setEditingLocation(null)} className="rounded border px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
@@ -1066,6 +1109,13 @@ export default function AdminDashboard() {
                   value={locationForm.orderPrefix}
                   onChange={(e) => setLocationForm((prev) => ({ ...prev, orderPrefix: e.target.value }))}
                 />
+                <div className="sm:col-span-2">
+                  <p className="mb-1 text-sm font-semibold text-slate-700">Jours de livraison autorisés</p>
+                  <DeliveryDaysCheckboxes
+                    value={locationForm.deliveryDays}
+                    onChange={(v) => setLocationForm((prev) => ({ ...prev, deliveryDays: v }))}
+                  />
+                </div>
                 <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700">Créer site</button>
               </form>
 
@@ -1076,6 +1126,9 @@ export default function AdminDashboard() {
                       <p className="font-semibold">{location.name}</p>
                       <p className="text-slate-600">{location.address}, {location.city} {location.postalCode}</p>
                       <p className="text-slate-500 text-xs">Prefixe commande: {location.orderPrefix || 'Non defini'}</p>
+                      <p className="text-slate-500 text-xs">
+                        Livraisons: {parseDeliveryDays(location.deliveryDays).map((d) => DELIVERY_DAY_LABELS[d]).join(', ') || 'Aucun jour défini'}
+                      </p>
                       <p className="text-slate-400 text-xs">{location.quays.length} quai(s)</p>
                     </div>
                     <div className="flex gap-2">

@@ -19,8 +19,15 @@ const ensureLocationOrderPrefixRulesTable = async () => {
   `);
 };
 
+const ensureDeliveryDaysColumn = async () => {
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "delivery_locations" ADD COLUMN IF NOT EXISTS "deliveryDays" TEXT NOT NULL DEFAULT '1,2,3,4,5'`
+  );
+};
+
 const withOrderPrefixes = async <T extends { id: string }>(locations: T[]) => {
   await ensureLocationOrderPrefixRulesTable();
+  await ensureDeliveryDaysColumn();
   const rows = await prisma.$queryRawUnsafe<Array<{ locationId: string; orderPrefix: string }>>(
     'SELECT "locationId", "orderPrefix" FROM "location_order_prefix_rules"'
   );

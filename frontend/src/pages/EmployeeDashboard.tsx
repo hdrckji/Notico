@@ -11,6 +11,9 @@ interface Appointment {
   volume: number;
   deliveryType: 'PALLET' | 'PARCEL';
   deliveryNoteNumber?: string | null;
+  deliveryNoteFileName?: string | null;
+  deliveryNoteFileMimeType?: string | null;
+  deliveryNoteFileBase64?: string | null;
   palletsReceived?: number | null;
   palletsReturned?: number | null;
   scheduledDate: string;
@@ -510,7 +513,7 @@ export default function EmployeeDashboard() {
                   return (
                     <div key={iso} className="min-h-32">
                       <div className={`px-2 py-2 text-center border-b border-slate-200 ${isToday ? 'bg-blue-600 text-white' : 'bg-slate-50'}`}>
-                        <p className="text-xs font-bold uppercase">{DAYS_FR[i]}</p>
+                        <p className="text-xs font-bold uppercase" translate="no">{DAYS_FR[i]}</p>
                         <p className={`text-lg font-black ${isToday ? 'text-white' : 'text-slate-900'}`}>{day.getDate()}</p>
                       </div>
                       <div className="p-1 space-y-1">
@@ -615,6 +618,18 @@ export default function EmployeeDashboard() {
               {selectedAppt.location && <p><span className="font-semibold">Site :</span> {selectedAppt.location.name}</p>}
               {selectedAppt.quay && <p><span className="font-semibold">Quai :</span> {selectedAppt.quay.name}</p>}
               {selectedAppt.deliveryNoteNumber && <p><span className="font-semibold">BL :</span> {selectedAppt.deliveryNoteNumber}</p>}
+              {selectedAppt.deliveryNoteFileBase64 && selectedAppt.deliveryNoteFileName && (
+                <p>
+                  <span className="font-semibold">Fichier BL (fournisseur) :</span>{' '}
+                  <a
+                    href={`data:${selectedAppt.deliveryNoteFileMimeType || 'application/octet-stream'};base64,${selectedAppt.deliveryNoteFileBase64}`}
+                    download={selectedAppt.deliveryNoteFileName}
+                    className="text-blue-700 underline hover:text-blue-900"
+                  >
+                    {selectedAppt.deliveryNoteFileName}
+                  </a>
+                </p>
+              )}
               {(selectedAppt.palletsReceived !== undefined && selectedAppt.palletsReceived !== null) && (
                 <p><span className="font-semibold">Palettes reçues :</span> {selectedAppt.palletsReceived}</p>
               )}

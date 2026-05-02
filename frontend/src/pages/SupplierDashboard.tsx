@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import client from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { type Lang, LANG_LABELS, t, getStoredLang, setStoredLang } from '../i18n/supplier';
 
 interface Appointment {
   id: string;
@@ -44,12 +45,20 @@ export default function SupplierDashboard() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [resolvedLocation, setResolvedLocation] = useState<DeliveryLocation | null>(null);
+  const [lang, setLang] = useState<Lang>(getStoredLang);
   const [bookingForm, setBookingForm] = useState({
     orderNumber: '',
     volume: 1,
     deliveryType: 'PALLET' as 'PALLET' | 'PARCEL',
   });
   const { logout } = useAuthStore();
+
+  const tr = t[lang];
+
+  const switchLang = (next: Lang) => {
+    setLang(next);
+    setStoredLang(next);
+  };
 
   useEffect(() => {
     loadInitialData();
@@ -211,13 +220,26 @@ export default function SupplierDashboard() {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Espace fournisseur</h1>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Deconnexion
-          </button>
+          <h1 className="text-2xl font-bold text-gray-900">{tr.supplierSpace}</h1>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1">
+              {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => switchLang(l)}
+                  className={`rounded px-2 py-0.5 text-xs font-bold border ${lang === l ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-600 hover:bg-slate-100'}`}
+                >
+                  {LANG_LABELS[l]}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={logout}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              {tr.logout}
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -228,8 +250,8 @@ export default function SupplierDashboard() {
           <>
             <section className="bg-white rounded-xl shadow p-5 space-y-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Demande de livraison</h2>
-                <p className="text-sm text-gray-600">Indiquez le numero de commande et le volume pour recevoir les prochains creneaux disponibles.</p>
+                <h2 className="text-xl font-bold text-gray-900">{tr.deliveryRequestTitle}</h2>
+                <p className="text-sm text-gray-600">{tr.deliveryRequestSubtitle}</p>
               </div>
 
               {error && <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
@@ -238,7 +260,7 @@ export default function SupplierDashboard() {
               <form onSubmit={handleFindSlots} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <input
                   className="rounded border p-2"
-                  placeholder="Numero de commande"
+                  placeholder={tr.orderNumber}
                   value={bookingForm.orderNumber}
                   onChange={(e) => {
                     const nextOrderNumber = e.target.value;
@@ -254,8 +276,8 @@ export default function SupplierDashboard() {
 
                 <div className="rounded border p-2 text-sm text-slate-700 bg-slate-50">
                   {resolvedLocation
-                    ? `Site detecte automatiquement: ${resolvedLocation.name}`
-                    : 'Site detecte automatiquement selon les 5 premiers chiffres du numero de commande'}
+                    ? `${tr.siteDetected}: ${resolvedLocation.name}`
+                    : tr.siteAuto}
                 </div>
 
                 <select
@@ -263,8 +285,8 @@ export default function SupplierDashboard() {
                   value={bookingForm.deliveryType}
                   onChange={(e) => setBookingForm((prev) => ({ ...prev, deliveryType: e.target.value as 'PALLET' | 'PARCEL' }))}
                 >
-                  <option value="PALLET">Palettes</option>
-                  <option value="PARCEL">Colis</option>
+                  <option value="PALLET">{tr.pallets}</option>
+                  <option value="PARCEL">{tr.parcels}</option>
                 </select>
 
                 <input
@@ -277,7 +299,7 @@ export default function SupplierDashboard() {
                 />
 
                 <div className="sm:col-span-2 lg:col-span-4 rounded border border-slate-200 bg-slate-50 p-3">
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Bon de livraison (optionnel)</p>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{tr.blFileLabel}</p>
                   <input
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -285,7 +307,7 @@ export default function SupplierDashboard() {
                     onChange={(e) => setDeliveryNoteFile(e.target.files?.[0] || null)}
                   />
                   {deliveryNoteFile && (
-                    <p className="mt-1 text-xs text-slate-600">Fichier sélectionné: {deliveryNoteFile.name}</p>
+                    <p className="mt-1 text-xs text-slate-600">{tr.selectedFile}: {deliveryNoteFile.name}</p>
                   )}
                 </div>
 
@@ -294,13 +316,13 @@ export default function SupplierDashboard() {
                   disabled={findingSlots}
                   className="sm:col-span-2 lg:col-span-4 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 disabled:opacity-50"
                 >
-                  {findingSlots ? 'Recherche en cours...' : 'Proposer les prochains creneaux'}
+                  {findingSlots ? tr.findingSlots : tr.findSlots}
                 </button>
               </form>
 
               {availableSlots.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Creneaux proposes</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{tr.proposedSlots}</h3>
                   <div className="grid gap-2 md:grid-cols-2">
                     {availableSlots.map((slot) => {
                       const isSelected = selectedSlot?.scheduledDate === slot.scheduledDate && selectedSlot?.quayId === slot.quayId;
@@ -328,30 +350,30 @@ export default function SupplierDashboard() {
                     disabled={!selectedSlot || saving}
                     className="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:opacity-50"
                   >
-                    {saving ? 'Creation...' : 'Confirmer ce creneau'}
+                    {saving ? tr.confirming : tr.confirmSlot}
                   </button>
                 </div>
               )}
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-bold text-gray-900">Mes rendez-vous</h2>
+              <h2 className="text-xl font-bold text-gray-900">{tr.myAppointments}</h2>
               <div className="grid gap-3">
                 {appointments.length === 0 ? (
                   <div className="bg-white p-6 rounded shadow text-center text-gray-600">
-                    Aucun rendez-vous pour le moment.
+                    {tr.noAppointments}
                   </div>
                 ) : (
                   appointments.map((apt) => (
                     <div key={apt.id} className="bg-white p-4 rounded shadow">
-                      <h3 className="font-semibold">Commande {apt.orderNumber}</h3>
-                      <p className="text-gray-600">Volume: {apt.volume} {apt.deliveryType === 'PALLET' ? 'palette(s)' : 'colis'}</p>
-                      <p className="text-gray-600">Site: {apt.location?.name || '-'}</p>
-                      <p className="text-gray-600">Quai: {apt.quay?.name || '-'}</p>
-                      <p className="text-gray-600">Date: {new Date(apt.scheduledDate).toLocaleString('fr-BE')}</p>
+                      <h3 className="font-semibold">{tr.order} {apt.orderNumber}</h3>
+                      <p className="text-gray-600">{tr.volume}: {apt.volume} {apt.deliveryType === 'PALLET' ? tr.palette : tr.parcel}</p>
+                      <p className="text-gray-600">{tr.site}: {apt.location?.name || '-'}</p>
+                      <p className="text-gray-600">{tr.quay}: {apt.quay?.name || '-'}</p>
+                      <p className="text-gray-600">{tr.date}: {new Date(apt.scheduledDate).toLocaleString('fr-BE')}</p>
                       {apt.deliveryNoteFileName ? (
                         <p className="text-gray-600">
-                          BL fichier:{' '}
+                          {tr.blFile}:{' '}
                           <a
                             className="text-blue-700 underline"
                             href={`data:${apt.deliveryNoteFileMimeType || 'application/octet-stream'};base64,${apt.deliveryNoteFileBase64 || ''}`}
@@ -361,7 +383,7 @@ export default function SupplierDashboard() {
                           </a>
                         </p>
                       ) : (
-                        <p className="text-gray-500 text-sm">Aucun fichier BL lié.</p>
+                        <p className="text-gray-500 text-sm">{tr.noBlFile}</p>
                       )}
 
                       <span className={`inline-block mt-2 px-3 py-1 rounded text-sm font-medium ${
@@ -369,7 +391,7 @@ export default function SupplierDashboard() {
                         apt.status === 'NO_SHOW' ? 'bg-red-100 text-red-800' :
                         'bg-blue-100 text-blue-800'
                       }`}>
-                        {apt.status}
+                        {tr[`status_${apt.status}` as keyof typeof tr] || apt.status}
                       </span>
                     </div>
                   ))
