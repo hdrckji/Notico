@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { startAutoCancelUndeliveredJob } from './services/appointmentAutoCancel';
+import { normalizeCancelledStatusesToNoShow } from './services/normalizeAppointmentStatuses';
 
 // Load environment variables
 dotenv.config();
@@ -58,6 +59,17 @@ const server = app.listen(PORT, HOST, () => {
   stopAutoCancelJob = startAutoCancelUndeliveredJob();
 
   setImmediate(async () => {
+    try {
+      const normalized = await normalizeCancelledStatusesToNoShow();
+      if (normalized.appointments || normalized.historyToStatus || normalized.historyFromStatus) {
+        console.log(
+          `[status-normalize] ${normalized.appointments} appointments, ${normalized.historyToStatus} history toStatus, ${normalized.historyFromStatus} history fromStatus converts vers NO_SHOW.`
+        );
+      }
+    } catch (error) {
+      console.error('[status-normalize] Echec de la normalisation des statuts CANCELLED vers NO_SHOW:', error);
+    }
+
     const routeLoaders = [
       { prefix: '/api/auth', modulePath: './routes/auth' },
       { prefix: '/api/suppliers', modulePath: './routes/suppliers' },
