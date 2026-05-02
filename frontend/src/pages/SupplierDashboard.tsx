@@ -317,7 +317,6 @@ export default function SupplierDashboard() {
                         >
                           <p className="font-semibold">{slot.dateLabel}</p>
                           <p className={`text-sm ${isSelected ? 'text-slate-100' : 'text-slate-600'}`}>{slot.locationName} · {slot.quayName}</p>
-                          <p className={`text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>Capacite restante: {slot.remainingCapacity}</p>
                         </button>
                       );
                     })}
