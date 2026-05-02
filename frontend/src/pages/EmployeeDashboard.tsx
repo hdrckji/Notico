@@ -3,7 +3,7 @@ import client from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
 type AppointmentStatus = 'SCHEDULED' | 'DELIVERED' | 'RESCHEDULED' | 'NO_SHOW' | 'CANCELLED';
-type ViewMode = 'week' | 'list';
+type ViewMode = 'week' | 'list' | 'history';
 
 interface Appointment {
   id: string;
@@ -116,6 +116,7 @@ export default function EmployeeDashboard() {
   const [view, setView] = useState<ViewMode>('week');
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [showCancelled, setShowCancelled] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
@@ -270,22 +271,30 @@ export default function EmployeeDashboard() {
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
+  const visibleAppointments = useMemo(
+    () => showCancelled ? appointments : appointments.filter((a) => a.status !== 'CANCELLED'),
+    [appointments, showCancelled]
+  );
+
   const apptsByDay = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
     weekDays.forEach((d) => { map[toLocalISO(d)] = []; });
-    appointments.forEach((a) => {
+    visibleAppointments.forEach((a) => {
       const key = new Date(a.scheduledDate).toLocaleDateString('fr-CA');
       if (map[key]) map[key].push(a);
     });
     return map;
-  }, [appointments, weekDays]);
+  }, [visibleAppointments, weekDays]);
 
   const todayISO = toLocalISO(new Date());
   const todayCount = appointments.filter((a) => new Date(a.scheduledDate).toLocaleDateString('fr-CA') === todayISO).length;
   const scheduledCount = appointments.filter((a) => a.status === 'SCHEDULED').length;
   const deliveredCount = appointments.filter((a) => a.status === 'DELIVERED').length;
 
-  const listFiltered = appointments.filter((a) => filterStatus === 'ALL' || a.status === filterStatus);
+  const listFiltered = visibleAppointments.filter((a) => filterStatus === 'ALL' || a.status === filterStatus);
+  const historyFiltered = [...visibleAppointments]
+    .filter((a) => filterStatus === 'ALL' || a.status === filterStatus)
+    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -415,6 +424,7 @@ export default function EmployeeDashboard() {
           <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm font-semibold">
             <button onClick={() => setView('week')} className={`px-4 py-1.5 ${view === 'week' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Semaine</button>
             <button onClick={() => setView('list')} className={`px-4 py-1.5 ${view === 'list' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Liste</button>
+            <button onClick={() => setView('history')} className={`px-4 py-1.5 ${view === 'history' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Historique</button>
           </div>
 
           {view === 'week' && (
@@ -428,7 +438,7 @@ export default function EmployeeDashboard() {
             </div>
           )}
 
-          {view === 'list' && (
+          {(view === 'list' || view === 'history') && (
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm">
               <option value="ALL">Tous les statuts</option>
               {(Object.keys(STATUS_LABELS) as AppointmentStatus[]).map((s) => (
@@ -436,6 +446,15 @@ export default function EmployeeDashboard() {
               ))}
             </select>
           )}
+
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={showCancelled}
+              onChange={(e) => setShowCancelled(e.target.checked)}
+            />
+            Afficher les annulés
+          </label>
 
           <button onClick={loadDashboardData} className="ml-auto rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">
             ↻ Rafraîchir
@@ -502,6 +521,43 @@ export default function EmployeeDashboard() {
                     onUpdate={updateStatus}
                     onOpenDelivered={openDeliveredValidation}
                   />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Vue Historique illimitée */}
+        {view === 'history' && (
+          <div className="rounded-xl border border-slate-300 bg-white overflow-hidden">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <h2 className="font-bold text-slate-900">Historique complet ({historyFiltered.length})</h2>
+              <p className="text-xs text-slate-500">Aucune limitation de période: toutes les livraisons passées restent visibles.</p>
+            </div>
+            {loading ? (
+              <p className="p-6 text-slate-500">Chargement...</p>
+            ) : historyFiltered.length === 0 ? (
+              <p className="p-6 text-slate-500">Aucun rendez-vous dans l'historique.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {historyFiltered.map((appt) => (
+                  <button
+                    key={appt.id}
+                    type="button"
+                    onClick={() => openDeliveredValidation(appt)}
+                    className="w-full px-4 py-3 text-left hover:bg-slate-50"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-slate-900">{appt.supplier?.name || 'Fournisseur'}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${appt.createdByRole === 'EMPLOYEE' ? EMPLOYEE_CREATED_CLASSES : STATUS_COLORS[appt.status]}`}>{STATUS_LABELS[appt.status]}</span>
+                    </div>
+                    <p className="text-sm text-slate-600">Commande {appt.orderNumber} · {appt.volume} {appt.deliveryType === 'PALLET' ? 'palettes' : 'colis'}</p>
+                    <p className="text-xs text-slate-400">
+                      {new Date(appt.scheduledDate).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {appt.location && ` · ${appt.location.name}`}
+                      {appt.quay && ` · Quai ${appt.quay.name}`}
+                    </p>
+                  </button>
                 ))}
               </div>
             )}
